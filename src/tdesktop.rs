@@ -94,10 +94,7 @@ impl TDesktop {
             account_indices,
         } = decrypt_key_data(&key_data, passcode.as_bytes())?;
 
-        tracing::info!(
-            "Loaded key data: {} accounts found",
-            account_indices.len()
-        );
+        tracing::info!("Loaded key data: {} accounts found", account_indices.len());
 
         // Load accounts
         let mut accounts = Vec::new();
@@ -133,7 +130,12 @@ impl TDesktop {
     }
 
     /// Load a single account
-    fn load_account(base_path: &Path, index: i32, local_key: &AuthKey, key_file: &str) -> Result<Account> {
+    fn load_account(
+        base_path: &Path,
+        index: i32,
+        local_key: &AuthKey,
+        key_file: &str,
+    ) -> Result<Account> {
         let mtp_data = read_mtp_data(base_path, index, local_key, key_file)?;
 
         Ok(Account::new(
@@ -190,48 +192,40 @@ impl TDesktop {
     }
 }
 
-/// Builder for TDesktop with more control over loading
-pub struct TDesktopBuilder {
-    path: PathBuf,
-    passcode: Option<String>,
-    key_file: Option<String>,
-}
-
-impl TDesktopBuilder {
-    /// Create a new builder with the given path
-    pub fn new<P: AsRef<Path>>(path: P) -> Self {
-        Self {
-            path: path.as_ref().to_path_buf(),
-            passcode: None,
-            key_file: None,
-        }
-    }
-
-    /// Set the passcode
-    pub fn passcode(mut self, passcode: impl Into<String>) -> Self {
-        self.passcode = Some(passcode.into());
-        self
-    }
-
-    /// Set the key file name
-    pub fn key_file(mut self, key_file: impl Into<String>) -> Self {
-        self.key_file = Some(key_file.into());
-        self
-    }
-
-    /// Build and load the TDesktop
-    pub fn build(self) -> Result<TDesktop> {
-        TDesktop::with_options(
-            self.path,
-            self.passcode.as_deref(),
-            self.key_file.as_deref(),
-        )
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
+
+    /// Builder for TDesktop with more control over loading
+    struct TDesktopBuilder {
+        path: PathBuf,
+        passcode: Option<String>,
+        key_file: Option<String>,
+    }
+
+    impl TDesktopBuilder {
+        /// Create a new builder with the given path
+        fn new<P: AsRef<Path>>(path: P) -> Self {
+            Self {
+                path: path.as_ref().to_path_buf(),
+                passcode: None,
+                key_file: None,
+            }
+        }
+
+        /// Set the passcode
+        fn passcode(mut self, passcode: impl Into<String>) -> Self {
+            self.passcode = Some(passcode.into());
+            self
+        }
+
+        /// Set the key file name
+        fn key_file(mut self, key_file: impl Into<String>) -> Self {
+            self.key_file = Some(key_file.into());
+            self
+        }
+    }
 
     #[test]
     fn test_builder() {

@@ -1,6 +1,6 @@
 use clap::Parser;
-use tdata_rs::TDesktop;
 use std::path::PathBuf;
+use tdata_rs::TDesktop;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -27,8 +27,7 @@ fn main() -> anyhow::Result<()> {
     // Determine path
     let path = if args.path.is_empty() {
         let home = std::env::var("HOME")?;
-        PathBuf::from(home)
-            .join(".local/share/TelegramDesktop/tdata")
+        PathBuf::from(home).join(".local/share/TelegramDesktop/tdata")
     } else {
         PathBuf::from(&args.path)
     };
@@ -44,7 +43,10 @@ fn main() -> anyhow::Result<()> {
 
     println!("✅ Successfully loaded TDesktop storage!");
     println!("   App Version: {}", tdata.app_version());
-    println!("   Passcode:    {}", if tdata.has_passcode() { "YES" } else { "NO" });
+    println!(
+        "   Passcode:    {}",
+        if tdata.has_passcode() { "YES" } else { "NO" }
+    );
     println!("   Accounts:    {}", tdata.accounts().len());
     println!();
 
@@ -52,7 +54,7 @@ fn main() -> anyhow::Result<()> {
         println!("👤 Account #{} (Index {})", i + 1, account.index());
         println!("   User ID:   {}", account.user_id());
         println!("   DC ID:     {}", account.dc_id());
-        
+
         // Generate Grammers session string
         if let Ok(session) = account.to_session_string() {
             println!("   Session:   {}", session);

@@ -24,13 +24,10 @@ fn main() {
                 println!("Account {} (index {}):", i, account.index());
                 println!("   DC ID: {}", account.dc_id());
                 println!("   User ID: {}", account.user_id());
-                
+
                 // Show first 8 bytes of auth key (for verification)
                 let key = account.auth_key_bytes();
-                println!(
-                    "   Auth key (first 8 bytes): {:02x?}",
-                    &key[..8]
-                );
+                println!("   Auth key (first 8 bytes): {:02x?}", &key[..8]);
 
                 // Try converting to session string
                 match account.to_session_string() {

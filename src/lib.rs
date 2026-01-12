@@ -31,15 +31,19 @@
 //! }
 //! ```
 
-mod error;
-mod qdatastream;
-mod crypto;
-mod storage;
 mod account;
+mod error;
+mod storage;
 mod tdesktop;
 
-pub use error::{Error, Result};
+/// Cryptographic primitives for tdata encryption/decryption
+pub mod crypto;
+
+/// Qt DataStream binary format parser
+pub mod qdatastream;
+
 pub use account::Account;
+pub use error::{Error, Result};
 pub use tdesktop::TDesktop;
 
 /// Auth key size in bytes (256 bytes = 2048 bits)

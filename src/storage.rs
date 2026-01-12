@@ -58,7 +58,7 @@ fn parse_file_descriptor(data: &[u8]) -> Result<FileDescriptor> {
     }
 
     // Check magic
-    if &data[0..4] != TDATA_MAGIC {
+    if data[0..4] != TDATA_MAGIC {
         return Err(Error::invalid_format("invalid file magic"));
     }
 
@@ -152,7 +152,7 @@ pub fn decrypt_key_data(key_data: &KeyData, passcode: &[u8]) -> Result<KeyInfo> 
     let mut info_stream = QDataStream::new(&decrypted_info);
 
     let count = info_stream.read_i32()?;
-    
+
     if count <= 0 || count > MAX_ACCOUNTS as i32 {
         return Err(Error::invalid_format(format!(
             "invalid account count: {}",
@@ -174,7 +174,6 @@ pub fn decrypt_key_data(key_data: &KeyData, passcode: &[u8]) -> Result<KeyInfo> 
     })
 }
 
-
 /// Read MTP data file (contains the actual auth key)
 ///
 /// The MTP data is stored in a file named by ToFilePart(ComputeDataNameKey(keyFile))
@@ -189,19 +188,19 @@ pub fn read_mtp_data(
     let data_name = compose_data_string(key_file, index);
     let data_name_key = compute_data_name_key(&data_name);
     let file_name = to_file_part(data_name_key);
-    
+
     tracing::debug!("Looking for MTP data in file: {}", file_name);
-    
+
     // Read the encrypted file
     let file = read_file(&file_name, base_path)?;
-    
+
     // The file contains a QByteArray which is the encrypted data
     let mut stream = QDataStream::new(&file.data);
     let encrypted = stream.read_qbytearray()?;
-    
+
     // Decrypt
     let decrypted = decrypt_local(&encrypted, local_key)?;
-    
+
     // Parse the decrypted MTP data
     parse_mtp_authorization(&decrypted)
 }
@@ -219,15 +218,14 @@ fn compose_data_string(key_file: &str, index: i32) -> String {
 /// Compute data name key from key file name using MD5
 fn compute_data_name_key(data_name: &str) -> u64 {
     use md5::{Digest, Md5};
-    
+
     let mut hasher = Md5::new();
     hasher.update(data_name.as_bytes());
     let result: [u8; 16] = hasher.finalize().into();
-    
+
     // Take lower 64 bits (little endian)
     u64::from_le_bytes([
-        result[0], result[1], result[2], result[3],
-        result[4], result[5], result[6], result[7],
+        result[0], result[1], result[2], result[3], result[4], result[5], result[6], result[7],
     ])
 }
 
@@ -235,7 +233,7 @@ fn compute_data_name_key(data_name: &str) -> u64 {
 fn to_file_part(val: u64) -> String {
     let mut result = String::with_capacity(16);
     let mut v = val;
-    
+
     for _ in 0..16 {
         let nibble = (v & 0x0F) as u8;
         let c = if nibble < 0x0A {
@@ -246,7 +244,7 @@ fn to_file_part(val: u64) -> String {
         result.push(c);
         v >>= 4;
     }
-    
+
     result
 }
 
@@ -278,10 +276,10 @@ const K_WIDE_IDS_TAG: i64 = !0i64; // All bits set = -1
 /// - ...
 fn parse_mtp_authorization(data: &[u8]) -> Result<MtpData> {
     let mut stream = QDataStream::new(data);
-    
+
     // Read block ID
     let block_id = stream.read_i32()?;
-    
+
     // 0x4B = 75 = dbi.MtpAuthorization
     if block_id != 0x4B {
         return Err(Error::invalid_format(format!(
@@ -289,18 +287,18 @@ fn parse_mtp_authorization(data: &[u8]) -> Result<MtpData> {
             block_id
         )));
     }
-    
+
     // Read the serialized QByteArray
     let serialized = stream.read_qbytearray()?;
     let mut auth_stream = QDataStream::new(&serialized);
-    
+
     // Read user ID and DC ID
     let first_int = auth_stream.read_i32()?;
     let second_int = auth_stream.read_i32()?;
-    
+
     // Check for kWideIdsTag (new format with 64-bit user ID)
     let combined = ((first_int as i64) << 32) | (second_int as u32 as i64);
-    
+
     let (user_id, main_dc_id) = if combined == K_WIDE_IDS_TAG {
         // New format: next is int64 userId, then int32 mainDcId
         let uid = auth_stream.read_i64()?;
@@ -310,39 +308,39 @@ fn parse_mtp_authorization(data: &[u8]) -> Result<MtpData> {
         // Old format: first_int is userId, second_int is mainDcId
         (first_int as i64, second_int)
     };
-    
+
     tracing::debug!("MTP auth: user_id={}, main_dc_id={}", user_id, main_dc_id);
-    
+
     // Read keys count
     let keys_count = auth_stream.read_i32()?;
-    
-    if keys_count < 0 || keys_count > 10 {
+
+    if !(0..=10).contains(&keys_count) {
         return Err(Error::invalid_format(format!(
             "invalid keys count: {}",
             keys_count
         )));
     }
-    
+
     // Read auth keys
     let mut auth_key: Option<[u8; 256]> = None;
-    
+
     for _ in 0..keys_count {
         let dc_id = auth_stream.read_i32()?;
         let key_bytes = auth_stream.read_raw(256)?;
-        
+
         tracing::debug!("Found key for DC {}", dc_id);
-        
+
         if dc_id == main_dc_id {
             let mut key = [0u8; 256];
             key.copy_from_slice(&key_bytes);
             auth_key = Some(key);
         }
     }
-    
+
     let auth_key = auth_key.ok_or_else(|| {
         Error::auth_key_failed(format!("no auth key found for main DC {}", main_dc_id))
     })?;
-    
+
     Ok(MtpData {
         dc_id: main_dc_id,
         user_id,

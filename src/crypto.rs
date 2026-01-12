@@ -130,7 +130,7 @@ pub fn decrypt_local(encrypted: &[u8], key: &AuthKey) -> Result<Vec<u8>> {
 
     // Verify: SHA1(decrypted)[0..16] must equal encrypted_key
     let check_hash = &sha1_hash(&decrypted)[0..16];
-    
+
     tracing::debug!(
         "SHA1 check: expected={:02x?}, computed={:02x?}",
         encrypted_key,
@@ -146,20 +146,21 @@ pub fn decrypt_local(encrypted: &[u8], key: &AuthKey) -> Result<Vec<u8>> {
         return Err(Error::DecryptionFailed);
     }
 
-    let original_len = u32::from_le_bytes([
-        decrypted[0],
-        decrypted[1],
-        decrypted[2],
-        decrypted[3],
-    ]) as usize;
+    let original_len =
+        u32::from_le_bytes([decrypted[0], decrypted[1], decrypted[2], decrypted[3]]) as usize;
 
     let full_len = encrypted_data.len();
-    
+
     // Validate length
-    if original_len > decrypted.len() || original_len <= full_len.saturating_sub(16) || original_len < 4 {
+    if original_len > decrypted.len()
+        || original_len <= full_len.saturating_sub(16)
+        || original_len < 4
+    {
         return Err(Error::invalid_format(format!(
             "invalid decrypted length: {}, full_len: {}, decrypted size: {}",
-            original_len, full_len, decrypted.len()
+            original_len,
+            full_len,
+            decrypted.len()
         )));
     }
 
@@ -174,16 +175,20 @@ pub fn decrypt_local(encrypted: &[u8], key: &AuthKey) -> Result<Vec<u8>> {
 fn prepare_aes_oldmtp(auth_key: &[u8], msg_key: &[u8]) -> ([u8; AES_KEY_SIZE], [u8; AES_KEY_SIZE]) {
     // For decrypt, x = 8 (send=false in tdesktop)
     let x: usize = 8;
-    
+
     // sha1_a = SHA1(msgKey + key[x..x+32])
     let sha1_a = sha1_hash_2(msg_key, &auth_key[x..x + 32]);
-    
+
     // sha1_b = SHA1(key[32+x..48+x] + msgKey + key[48+x..64+x])
-    let sha1_b = sha1_hash_3(&auth_key[32 + x..48 + x], msg_key, &auth_key[48 + x..64 + x]);
-    
+    let sha1_b = sha1_hash_3(
+        &auth_key[32 + x..48 + x],
+        msg_key,
+        &auth_key[48 + x..64 + x],
+    );
+
     // sha1_c = SHA1(key[64+x..96+x] + msgKey)
     let sha1_c = sha1_hash_2(&auth_key[64 + x..96 + x], msg_key);
-    
+
     // sha1_d = SHA1(msgKey + key[96+x..128+x])
     let sha1_d = sha1_hash_2(msg_key, &auth_key[96 + x..128 + x]);
 
@@ -207,7 +212,7 @@ fn prepare_aes_oldmtp(auth_key: &[u8], msg_key: &[u8]) -> ([u8; AES_KEY_SIZE], [
 /// AES-256-IGE decryption
 fn ige_decrypt(key: &[u8; 32], iv: &[u8; 32], data: &[u8]) -> Vec<u8> {
     use grammers_crypto::aes::ige_decrypt as grammers_ige_decrypt;
-    
+
     grammers_ige_decrypt(data, key, iv)
 }
 
@@ -243,7 +248,7 @@ mod tests {
     fn test_create_local_key_no_passcode() {
         let salt = [0u8; LOCAL_ENCRYPT_SALT_SIZE];
         let passcode = b"";
-        
+
         let key = create_local_key(&salt, passcode);
         assert_eq!(key.as_bytes().len(), AUTH_KEY_SIZE);
     }
@@ -252,10 +257,10 @@ mod tests {
     fn test_create_local_key_with_passcode() {
         let salt = [0u8; LOCAL_ENCRYPT_SALT_SIZE];
         let passcode = b"test";
-        
+
         let key = create_local_key(&salt, passcode);
         assert_eq!(key.as_bytes().len(), AUTH_KEY_SIZE);
-        
+
         // Same inputs should produce same key
         let key2 = create_local_key(&salt, passcode);
         assert_eq!(key.as_bytes(), key2.as_bytes());
@@ -279,6 +284,9 @@ mod tests {
         let data = b"hello";
         let hash = sha1_hash(data);
         // SHA1("hello") = aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d
-        assert_eq!(hex::encode(hash), "aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d");
+        assert_eq!(
+            hex::encode(hash),
+            "aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d"
+        );
     }
 }

@@ -172,9 +172,11 @@ impl<'a> QDataStream<'a> {
         }
 
         let mut buf = vec![0u8; len];
-        self.cursor.read_exact(&mut buf).map_err(|_| Error::UnexpectedEof {
-            offset: self.position(),
-        })?;
+        self.cursor
+            .read_exact(&mut buf)
+            .map_err(|_| Error::UnexpectedEof {
+                offset: self.position(),
+            })?;
         Ok(buf)
     }
 
@@ -233,7 +235,7 @@ impl<'a> QDataStream<'a> {
     /// - N bytes: string data including null terminator
     pub fn read_cstring(&mut self) -> Result<String> {
         let data = self.read_qbytearray()?;
-        
+
         // Remove null terminator if present
         let data = if data.last() == Some(&0) {
             &data[..data.len() - 1]
@@ -269,7 +271,10 @@ mod tests {
         // Length = 4, data = [0x01, 0x02, 0x03, 0x04]
         let data = [0x00, 0x00, 0x00, 0x04, 0x01, 0x02, 0x03, 0x04];
         let mut stream = QDataStream::new(&data);
-        assert_eq!(stream.read_qbytearray().unwrap(), vec![0x01, 0x02, 0x03, 0x04]);
+        assert_eq!(
+            stream.read_qbytearray().unwrap(),
+            vec![0x01, 0x02, 0x03, 0x04]
+        );
     }
 
     #[test]
@@ -298,14 +303,14 @@ mod tests {
     fn test_position_and_remaining() {
         let data = [0x01, 0x02, 0x03, 0x04, 0x05];
         let mut stream = QDataStream::new(&data);
-        
+
         assert_eq!(stream.position(), 0);
         assert_eq!(stream.remaining(), 5);
-        
+
         stream.read_u8().unwrap();
         assert_eq!(stream.position(), 1);
         assert_eq!(stream.remaining(), 4);
-        
+
         stream.skip(2).unwrap();
         assert_eq!(stream.position(), 3);
         assert_eq!(stream.remaining(), 2);
@@ -315,7 +320,7 @@ mod tests {
     fn test_at_end() {
         let data = [0x01, 0x02];
         let mut stream = QDataStream::new(&data);
-        
+
         assert!(!stream.at_end());
         stream.read_u16().unwrap();
         assert!(stream.at_end());
