@@ -1,0 +1,72 @@
+[package]
+name = "tdata-rs"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75.0"
+description = "Pure Rust parser for Telegram Desktop's tdata storage format. Decrypts local storage and extracts auth keys without Qt/C++ dependencies."
+authors = ["Stranmor"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/stranmor/tdata-rs"
+homepage = "https://github.com/stranmor/tdata-rs"
+documentation = "https://docs.rs/tdata-rs"
+keywords = ["telegram", "tdata", "parser", "mtproto", "tdesktop"]
+categories = ["cryptography", "parsing", "api-bindings"]
+readme = "README.md"
+include = [
+    "src/**/*",
+    "examples/**/*",
+    "Cargo.toml",
+    "LICENSE-MIT",
+    "LICENSE-APACHE",
+    "README.md",
+    "CHANGELOG.md",
+]
+
+[dependencies]
+# Crypto - using grammers for AES-IGE (already battle-tested)
+grammers-crypto = "0.7"
+grammers-session = "0.8"
+
+# Key derivation
+pbkdf2 = { version = "0.12", default-features = false, features = ["sha2"] }
+sha2 = "0.10"
+sha1 = "0.10"
+md-5 = "0.10"
+
+# Binary parsing
+byteorder = "1.5"
+
+# Error handling  
+thiserror = "2"
+
+# Logging
+tracing = "0.1"
+
+# Filesystem paths
+dirs = "5"
+
+# Hex encoding
+hex = "0.4"
+
+# Serde for optional serialization
+serde = { version = "1", optional = true }
+
+[dev-dependencies]
+# Testing
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+tempfile = "3"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+clap = { version = "4", features = ["derive"] }
+anyhow = "1"
+
+[features]
+default = []
+serde = ["dep:serde"]
+
+[[example]]
+name = "cli"
+path = "examples/cli.rs"
+
+[[example]]
+name = "test_tdata"
+path = "examples/test_tdata.rs"
