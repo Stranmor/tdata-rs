@@ -23,12 +23,12 @@ echo "  📚 [4/5] Building docs..."
 RUSTDOCFLAGS="-Dwarnings" cargo doc --no-deps --all-features --quiet
 
 # MSRV check (requires rustup)
-echo "  🔧 [5/5] Checking MSRV (1.82.0)..."
+echo "  🔧 [5/5] Checking MSRV (1.85.0)..."
 if command -v rustup >/dev/null 2>&1; then
-    if rustup run 1.82.0 cargo check --all-features --quiet 2>/dev/null; then
-        echo "       MSRV 1.82.0 ✓"
+    if rustup run 1.85.0 cargo check --all-features --quiet 2>/dev/null; then
+        echo "       MSRV 1.85.0 ✓"
     else
-        echo "       ⚠️  MSRV 1.82.0 not installed, skipping"
+        echo "       ⚠️  MSRV 1.85.0 not installed, skipping"
     fi
 else
     echo "       ⚠️  rustup not found, skipping MSRV check"
