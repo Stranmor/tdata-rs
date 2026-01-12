@@ -2,7 +2,7 @@
 name = "tdata-rs"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.75.0"
+rust-version = "1.82.0"
 description = "Pure Rust parser for Telegram Desktop's tdata storage format. Decrypts local storage and extracts auth keys without Qt/C++ dependencies."
 authors = ["Stranmor"]
 license = "MIT OR Apache-2.0"
