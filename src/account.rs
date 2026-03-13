@@ -59,7 +59,7 @@ impl Account {
     ///
     /// Returns the session data that can be imported to any grammers Session
     pub fn to_grammers_session_data(&self) -> grammers_session::SessionData {
-        use grammers_session::{defs::DcOption, SessionData};
+        use grammers_session::{types::DcOption, SessionData};
         use std::net::{Ipv4Addr, SocketAddrV4, SocketAddrV6};
 
         // Get or create DC option with auth key

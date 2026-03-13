@@ -1,8 +1,7 @@
 [package]
 name = "tdata-rs"
-version = "0.1.0"
-edition = "2021"
-rust-version = "1.85.0"
+version = "0.2.0"
+edition = "2024"
 description = "Pure Rust parser for Telegram Desktop's tdata storage format. Decrypts local storage and extracts auth keys without Qt/C++ dependencies."
 authors = ["Stranmor"]
 license = "MIT OR Apache-2.0"
@@ -24,8 +23,8 @@ include = [
 
 [dependencies]
 # Crypto - using grammers for AES-IGE (already battle-tested)
-grammers-crypto = "0.7"
-grammers-session = "0.8"
+grammers-crypto = "0.9"
+grammers-session = "0.9"
 
 # Key derivation
 pbkdf2 = { version = "0.12", default-features = false, features = ["sha2"] }

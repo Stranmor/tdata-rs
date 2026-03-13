@@ -213,7 +213,10 @@ fn prepare_aes_oldmtp(auth_key: &[u8], msg_key: &[u8]) -> ([u8; AES_KEY_SIZE], [
 fn ige_decrypt(key: &[u8; 32], iv: &[u8; 32], data: &[u8]) -> Vec<u8> {
     use grammers_crypto::aes::ige_decrypt as grammers_ige_decrypt;
 
-    grammers_ige_decrypt(data, key, iv)
+    let mut decrypt_data = data.to_vec();
+    grammers_ige_decrypt(&mut decrypt_data[..], key, iv);
+    decrypt_data
+    
 }
 
 /// Compute SHA-1 hash
