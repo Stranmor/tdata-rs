@@ -27,7 +27,12 @@ pub struct Account {
 impl Account {
     /// Create a new account
     pub(crate) fn new(index: i32, dc_id: i32, user_id: i64, auth_key: [u8; AUTH_KEY_SIZE]) -> Self {
-        Self { index, dc_id, user_id, auth_key }
+        Self {
+            index,
+            dc_id,
+            user_id,
+            auth_key,
+        }
     }
 
     /// Get the account index (0-2)
@@ -67,7 +72,10 @@ impl Account {
         let ipv4: Ipv4Addr = ip.parse().unwrap();
         let ipv6 = ipv4.to_ipv6_mapped();
 
-        let mut session_data = SessionData { home_dc: self.dc_id, ..SessionData::default() };
+        let mut session_data = SessionData {
+            home_dc: self.dc_id,
+            ..SessionData::default()
+        };
 
         // Update the DC option with our auth key
         if let Some(dc_option) = session_data.dc_options.get_mut(&self.dc_id) {
@@ -117,8 +125,16 @@ fn base64_encode(data: &[u8]) -> String {
 
     while i < data.len() {
         let b0 = data[i] as usize;
-        let b1 = if i + 1 < data.len() { data[i + 1] as usize } else { 0 };
-        let b2 = if i + 2 < data.len() { data[i + 2] as usize } else { 0 };
+        let b1 = if i + 1 < data.len() {
+            data[i + 1] as usize
+        } else {
+            0
+        };
+        let b2 = if i + 2 < data.len() {
+            data[i + 2] as usize
+        } else {
+            0
+        };
 
         result.push(ALPHABET[b0 >> 2] as char);
         result.push(ALPHABET[((b0 & 0x03) << 4) | (b1 >> 4)] as char);

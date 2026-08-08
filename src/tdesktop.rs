@@ -40,8 +40,9 @@ impl TDesktop {
     /// - `Ok(TDesktop)` if loading succeeded
     /// - `Err(Error::FolderNotFound)` if the default location doesn't exist
     pub fn from_default() -> Result<Self> {
-        let path = get_default_tdata_path()
-            .ok_or_else(|| Error::FolderNotFound { path: PathBuf::from("(default tdata path)") })?;
+        let path = get_default_tdata_path().ok_or_else(|| Error::FolderNotFound {
+            path: PathBuf::from("(default tdata path)"),
+        })?;
 
         Self::from_path(path)
     }
@@ -79,7 +80,9 @@ impl TDesktop {
         let base_path = get_absolute_path(path.as_ref().to_str().unwrap_or(""));
 
         if !base_path.exists() {
-            return Err(Error::FolderNotFound { path: base_path.clone() });
+            return Err(Error::FolderNotFound {
+                path: base_path.clone(),
+            });
         }
 
         let key_file = key_file.unwrap_or(DEFAULT_KEY_FILE).to_string();
@@ -89,8 +92,10 @@ impl TDesktop {
         // Read and decrypt key data
         let key_data = read_key_data(&base_path, &key_file)?;
 
-        let KeyInfo { local_key, account_indices } =
-            decrypt_key_data(&key_data, passcode.as_bytes())?;
+        let KeyInfo {
+            local_key,
+            account_indices,
+        } = decrypt_key_data(&key_data, passcode.as_bytes())?;
 
         tracing::info!("Loaded key data: {} accounts found", account_indices.len());
 
@@ -106,10 +111,10 @@ impl TDesktop {
                         account.user_id()
                     );
                     accounts.push(account);
-                },
+                }
                 Err(e) => {
                     tracing::warn!("Failed to load account {}: {}", index, e);
-                },
+                }
             }
         }
 
@@ -136,7 +141,12 @@ impl TDesktop {
     ) -> Result<Account> {
         let mtp_data = read_mtp_data(base_path, index, local_key, key_file)?;
 
-        Ok(Account::new(index, mtp_data.dc_id, mtp_data.user_id, mtp_data.auth_key))
+        Ok(Account::new(
+            index,
+            mtp_data.dc_id,
+            mtp_data.user_id,
+            mtp_data.auth_key,
+        ))
     }
 
     /// Get the base path to the tdata folder
@@ -200,7 +210,11 @@ mod tests {
     impl TDesktopBuilder {
         /// Create a new builder with the given path
         fn new<P: AsRef<Path>>(path: P) -> Self {
-            Self { path: path.as_ref().to_path_buf(), passcode: None, key_file: None }
+            Self {
+                path: path.as_ref().to_path_buf(),
+                passcode: None,
+                key_file: None,
+            }
         }
 
         /// Set the passcode
@@ -218,7 +232,9 @@ mod tests {
 
     #[test]
     fn test_builder() {
-        let builder = TDesktopBuilder::new("/path/to/tdata").passcode("secret").key_file("custom");
+        let builder = TDesktopBuilder::new("/path/to/tdata")
+            .passcode("secret")
+            .key_file("custom");
 
         assert_eq!(builder.path, PathBuf::from("/path/to/tdata"));
         assert_eq!(builder.passcode, Some("secret".to_string()));

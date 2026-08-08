@@ -81,7 +81,10 @@ fn main() -> anyhow::Result<()> {
 
     println!("✅ Successfully loaded TDesktop storage!");
     println!("   App Version: {}", tdata.app_version());
-    println!("   Passcode:    {}", if tdata.has_passcode() { "YES" } else { "NO" });
+    println!(
+        "   Passcode:    {}",
+        if tdata.has_passcode() { "YES" } else { "NO" }
+    );
     println!("   Accounts:    {}", tdata.accounts().len());
     println!();
 

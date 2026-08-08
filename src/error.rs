@@ -76,16 +76,22 @@ pub enum Error {
 impl Error {
     /// Create a QDataStream error with a message
     pub fn qdatastream(msg: impl Into<String>) -> Self {
-        Self::QDataStreamError { message: msg.into() }
+        Self::QDataStreamError {
+            message: msg.into(),
+        }
     }
 
     /// Create an invalid format error with a message
     pub fn invalid_format(msg: impl Into<String>) -> Self {
-        Self::InvalidFormat { message: msg.into() }
+        Self::InvalidFormat {
+            message: msg.into(),
+        }
     }
 
     /// Create an auth key extraction error
     pub fn auth_key_failed(reason: impl Into<String>) -> Self {
-        Self::AuthKeyExtractionFailed { reason: reason.into() }
+        Self::AuthKeyExtractionFailed {
+            reason: reason.into(),
+        }
     }
 }

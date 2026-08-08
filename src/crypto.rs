@@ -56,7 +56,9 @@ impl AuthKey {
 impl std::fmt::Debug for AuthKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // Don't expose key in debug output
-        f.debug_struct("AuthKey").field("len", &self.data.len()).finish()
+        f.debug_struct("AuthKey")
+            .field("len", &self.data.len())
+            .finish()
     }
 }
 
@@ -105,7 +107,9 @@ pub fn decrypt_local(encrypted: &[u8], key: &AuthKey) -> Result<Vec<u8>> {
     }
 
     if encrypted.len() % AES_BLOCK_SIZE != 0 {
-        return Err(Error::invalid_format("encrypted data length must be multiple of 16"));
+        return Err(Error::invalid_format(
+            "encrypted data length must be multiple of 16",
+        ));
     }
 
     // Split: first 16 bytes is the encrypted key (msg_key), rest is encrypted data
@@ -127,7 +131,11 @@ pub fn decrypt_local(encrypted: &[u8], key: &AuthKey) -> Result<Vec<u8>> {
     // Verify: SHA1(decrypted)[0..16] must equal encrypted_key
     let check_hash = &sha1_hash(&decrypted)[0..16];
 
-    tracing::debug!("SHA1 check: expected={:02x?}, computed={:02x?}", encrypted_key, check_hash);
+    tracing::debug!(
+        "SHA1 check: expected={:02x?}, computed={:02x?}",
+        encrypted_key,
+        check_hash
+    );
 
     if check_hash != encrypted_key {
         return Err(Error::ChecksumMismatch);
@@ -172,7 +180,11 @@ fn prepare_aes_oldmtp(auth_key: &[u8], msg_key: &[u8]) -> ([u8; AES_KEY_SIZE], [
     let sha1_a = sha1_hash_2(msg_key, &auth_key[x..x + 32]);
 
     // sha1_b = SHA1(key[32+x..48+x] + msgKey + key[48+x..64+x])
-    let sha1_b = sha1_hash_3(&auth_key[32 + x..48 + x], msg_key, &auth_key[48 + x..64 + x]);
+    let sha1_b = sha1_hash_3(
+        &auth_key[32 + x..48 + x],
+        msg_key,
+        &auth_key[48 + x..64 + x],
+    );
 
     // sha1_c = SHA1(key[64+x..96+x] + msgKey)
     let sha1_c = sha1_hash_2(&auth_key[64 + x..96 + x], msg_key);
@@ -274,6 +286,9 @@ mod tests {
         let data = b"hello";
         let hash = sha1_hash(data);
         // SHA1("hello") = aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d
-        assert_eq!(hex::encode(hash), "aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d");
+        assert_eq!(
+            hex::encode(hash),
+            "aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d"
+        );
     }
 }

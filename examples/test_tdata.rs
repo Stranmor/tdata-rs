@@ -4,7 +4,9 @@ use tdata_rs::TDesktop;
 
 fn main() {
     // Configure tracing for debug output
-    tracing_subscriber::fmt().with_max_level(tracing::Level::DEBUG).init();
+    tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::DEBUG)
+        .init();
 
     println!("=== tdata-rs Test ===\n");
 
@@ -29,15 +31,15 @@ fn main() {
                 match account.to_session_string() {
                     Ok(session_str) => {
                         println!("   Session string generated: {} bytes", session_str.len());
-                    },
+                    }
                     Err(e) => {
                         println!("   ❌ Failed to create session string: {}", e);
-                    },
+                    }
                 }
 
                 println!();
             }
-        },
+        }
         Err(e) => {
             eprintln!("❌ Failed to load tdata: {}", e);
             eprintln!();
@@ -46,7 +48,7 @@ fn main() {
             eprintln!("  - tdata is password-protected (use from_path_with_passcode)");
             eprintln!("  - tdata format has changed");
             std::process::exit(1);
-        },
+        }
     }
 
     println!("=== Test Complete ===");
