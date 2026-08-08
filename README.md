@@ -1,4 +1,4 @@
-# tdata-rs 🚀
+# tdata-rs
 
 **Pure Rust parser for Telegram Desktop's `tdata` storage.**
 
@@ -7,27 +7,32 @@
 [![CI](https://github.com/stranmor/tdata-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/stranmor/tdata-rs/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSE-MIT)
 
-Extract sessions and authentication keys from Telegram Desktop's local storage (`tdata`) **without** launching the official client, using `Qt`, or relying on `Python`.
+Parse Telegram Desktop's local `tdata` storage and convert authorized account
+data into [`grammers`](https://github.com/Lonami/grammers) session formats.
+The crate reads local files only and does not include a network client.
 
-## ⚡️ Features
+> [!CAUTION]
+> Session strings and authentication keys grant account access. Use this crate
+> only with storage you own or are explicitly authorized to inspect, and treat
+> every generated session as a credential.
 
-- **Pure Rust**: No dependencies on Qt, C++, or Python. Statically linked and blazing fast.
-- **Cross-Platform**: Works on Linux, Windows, and macOS tdata folders.
-- **Cryptography**: Full implementation of TDesktop's custom encryption scheme:
+## Features
+
+- **Pure Rust parser**: No Qt, C++, or Python runtime dependency.
+- **Local storage cryptography**:
   - PBKDF2-SHA512 key derivation with custom parameters.
-  - AES-256-IGE encryption implementation.
-  - Custom MD5/SHA1 file integrity verification.
-- **MTP Parsing**:
+  - AES-256-IGE decryption through `grammers-crypto`.
+  - MD5/SHA1 file integrity verification.
+- **MTP parsing**:
   - Parses `key_data` (local keys).
   - Parses `map` files (account data).
-  - Extracts `AuthKey`, `UserId`, and `DcId`.
+  - Reads `AuthKey`, `UserId`, and `DcId` values.
   - Supports new (64-bit ID) and legacy tdata formats.
 - **Interoperability**:
-  - Generates session strings compatible with [`grammers`](https://github.com/Lonami/grammers) (Rust).
-  - Easily adaptable for `telethon` or `pyrogram`.
-- **Multi-Account**: Automatically detects and extracts all active accounts.
+  - Produces `grammers_session::SessionData` values and session strings.
+- **Multi-account storage**: Reads every account index present in the local key data.
 
-## 📦 Installation
+## Installation
 
 Add this to your `Cargo.toml`:
 
@@ -36,30 +41,20 @@ Add this to your `Cargo.toml`:
 tdata-rs = "0.1"
 ```
 
-## 🚀 Quick Start
+## Quick start
 
 ### Convert tdata to Session String
 
 ```rust
 use tdata_rs::TDesktop;
-use std::path::PathBuf;
 
 fn main() -> Result<(), tdata_rs::Error> {
-    // 1. Path to tdata (Linux example)
-    let tdata_path = PathBuf::from(std::env::var("HOME").unwrap())
-        .join(".local/share/TelegramDesktop/tdata");
+    let tdata = TDesktop::from_default()?;
 
-    // 2. Load TDesktop storage
-    let tdata = TDesktop::from_path(&tdata_path)?;
+    println!("Found {} account(s)", tdata.accounts().len());
 
-    println!("Found {} accounts!", tdata.accounts().len());
-
-    // 3. Iterate accounts
+    // Session strings are authentication credentials: never log them.
     for account in tdata.accounts() {
-        println!("User ID: {}", account.user_id());
-        
-        // 4. Generate a session string for secure storage or direct import.
-        // Session strings are authentication credentials: never log them.
         let session = account.to_session_string()?;
         println!("Session generated ({} bytes)", session.len());
     }
@@ -68,9 +63,10 @@ fn main() -> Result<(), tdata_rs::Error> {
 }
 ```
 
-## 🛠 CLI Utility
+## CLI utility
 
-This crate includes a ready-to-use CLI tool to inspect tdata and extract sessions.
+The repository includes a local inspection example. Credential output remains
+redacted unless an explicit `--show-*` flag is supplied.
 
 ```bash
 # Clone and run
@@ -115,23 +111,23 @@ cargo run --example cli -- --show-keys
    Auth Key:  [redacted; use --show-keys to reveal]
 ```
 
-## 🔒 Security Note
+## Security
 
-This library deals with **sensitive authentication keys**.
+This library handles live authentication credentials.
 
-- ⚠️ Never share your `tdata` folder, session strings, auth keys, or output produced with a `--show-*` option.
-- ⚠️ Anyone with a session string or `AuthKey` can access the corresponding Telegram account without 2FA.
-- ✅ The CLI redacts session strings and auth keys by default.
-- ✅ Passcodes can be entered through a hidden prompt or stdin and are not retained by the parsed `TDesktop` object.
-- ✅ This tool runs locally on your machine and does not transmit keys anywhere.
+- Never share your `tdata` folder, session strings, auth keys, or output produced with a `--show-*` option.
+- Anyone with a session string or `AuthKey` can access the corresponding Telegram account without 2FA.
+- The CLI redacts session strings and auth keys by default.
+- Passcodes can be entered through a hidden prompt or stdin and are not retained by the parsed `TDesktop` object.
+- The crate performs no network requests.
 
-## 🤝 Acknowledgements
+## Acknowledgements
 
 - **[opentele](https://github.com/thedemons/opentele)** (Python) - Protocol reference.
 - **[tdesktop](https://github.com/telegramdesktop/tdesktop)** (C++) - The source of truth.
 - **[grammers](https://github.com/Lonami/grammers)** (Rust) - Session format compatibility.
 
-## 📜 License
+## License
 
 Licensed under either of:
 
@@ -140,6 +136,6 @@ Licensed under either of:
 
 at your option.
 
-## 🤝 Contributing
+## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome through issues and pull requests.
