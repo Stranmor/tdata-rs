@@ -26,18 +26,12 @@ pub struct QDataStream<'a> {
 impl<'a> QDataStream<'a> {
     /// Create a new QDataStream reader with Qt 5.1 version
     pub fn new(data: &'a [u8]) -> Self {
-        Self {
-            cursor: Cursor::new(data),
-            version: QT_VERSION_5_1,
-        }
+        Self { cursor: Cursor::new(data), version: QT_VERSION_5_1 }
     }
 
     /// Create a new QDataStream reader with specified version
     pub fn with_version(data: &'a [u8], version: u32) -> Self {
-        Self {
-            cursor: Cursor::new(data),
-            version,
-        }
+        Self { cursor: Cursor::new(data), version }
     }
 
     /// Get the Qt version
@@ -66,78 +60,60 @@ impl<'a> QDataStream<'a> {
     pub fn skip(&mut self, n: usize) -> Result<()> {
         self.cursor
             .seek(SeekFrom::Current(n as i64))
-            .map_err(|_| Error::UnexpectedEof {
-                offset: self.position(),
-            })?;
+            .map_err(|_| Error::UnexpectedEof { offset: self.position() })?;
         Ok(())
     }
 
     /// Read a single byte (quint8)
     pub fn read_u8(&mut self) -> Result<u8> {
-        self.cursor.read_u8().map_err(|_| Error::UnexpectedEof {
-            offset: self.position(),
-        })
+        self.cursor.read_u8().map_err(|_| Error::UnexpectedEof { offset: self.position() })
     }
 
     /// Read a signed 8-bit integer (qint8)
     pub fn read_i8(&mut self) -> Result<i8> {
-        self.cursor.read_i8().map_err(|_| Error::UnexpectedEof {
-            offset: self.position(),
-        })
+        self.cursor.read_i8().map_err(|_| Error::UnexpectedEof { offset: self.position() })
     }
 
     /// Read an unsigned 16-bit integer (quint16) - Big Endian
     pub fn read_u16(&mut self) -> Result<u16> {
         self.cursor
             .read_u16::<BigEndian>()
-            .map_err(|_| Error::UnexpectedEof {
-                offset: self.position(),
-            })
+            .map_err(|_| Error::UnexpectedEof { offset: self.position() })
     }
 
     /// Read a signed 16-bit integer (qint16) - Big Endian
     pub fn read_i16(&mut self) -> Result<i16> {
         self.cursor
             .read_i16::<BigEndian>()
-            .map_err(|_| Error::UnexpectedEof {
-                offset: self.position(),
-            })
+            .map_err(|_| Error::UnexpectedEof { offset: self.position() })
     }
 
     /// Read an unsigned 32-bit integer (quint32) - Big Endian
     pub fn read_u32(&mut self) -> Result<u32> {
         self.cursor
             .read_u32::<BigEndian>()
-            .map_err(|_| Error::UnexpectedEof {
-                offset: self.position(),
-            })
+            .map_err(|_| Error::UnexpectedEof { offset: self.position() })
     }
 
     /// Read a signed 32-bit integer (qint32) - Big Endian
     pub fn read_i32(&mut self) -> Result<i32> {
         self.cursor
             .read_i32::<BigEndian>()
-            .map_err(|_| Error::UnexpectedEof {
-                offset: self.position(),
-            })
+            .map_err(|_| Error::UnexpectedEof { offset: self.position() })
     }
 
     /// Read an unsigned 64-bit integer (quint64) - Big Endian
     pub fn read_u64(&mut self) -> Result<u64> {
         self.cursor
             .read_u64::<BigEndian>()
-            .map_err(|_| Error::UnexpectedEof {
-                offset: self.position(),
-            })
+            .map_err(|_| Error::UnexpectedEof { offset: self.position() })
     }
 
     /// Read a signed 64-bit integer (qint64) - Big Endian
     pub fn read_i64(&mut self) -> Result<i64> {
         self.cursor
             .read_i64::<BigEndian>()
-            .map_err(|_| Error::UnexpectedEof {
-                offset: self.position(),
-            })
+            .map_err(|_| Error::UnexpectedEof { offset: self.position() })
     }
 
     /// Read a boolean value
@@ -149,34 +125,26 @@ impl<'a> QDataStream<'a> {
     pub fn read_f32(&mut self) -> Result<f32> {
         self.cursor
             .read_f32::<BigEndian>()
-            .map_err(|_| Error::UnexpectedEof {
-                offset: self.position(),
-            })
+            .map_err(|_| Error::UnexpectedEof { offset: self.position() })
     }
 
     /// Read a 64-bit double - Big Endian
     pub fn read_f64(&mut self) -> Result<f64> {
         self.cursor
             .read_f64::<BigEndian>()
-            .map_err(|_| Error::UnexpectedEof {
-                offset: self.position(),
-            })
+            .map_err(|_| Error::UnexpectedEof { offset: self.position() })
     }
 
     /// Read raw bytes of specified length
     pub fn read_raw(&mut self, len: usize) -> Result<Vec<u8>> {
         if self.remaining() < len {
-            return Err(Error::UnexpectedEof {
-                offset: self.position(),
-            });
+            return Err(Error::UnexpectedEof { offset: self.position() });
         }
 
         let mut buf = vec![0u8; len];
         self.cursor
             .read_exact(&mut buf)
-            .map_err(|_| Error::UnexpectedEof {
-                offset: self.position(),
-            })?;
+            .map_err(|_| Error::UnexpectedEof { offset: self.position() })?;
         Ok(buf)
     }
 
@@ -196,7 +164,7 @@ impl<'a> QDataStream<'a> {
                 // Extended 64-bit length (Qt 6.7+)
                 let real_len = self.read_u64()? as usize;
                 self.read_raw(real_len)
-            }
+            },
             _ => self.read_raw(len as usize),
         }
     }
@@ -237,11 +205,7 @@ impl<'a> QDataStream<'a> {
         let data = self.read_qbytearray()?;
 
         // Remove null terminator if present
-        let data = if data.last() == Some(&0) {
-            &data[..data.len() - 1]
-        } else {
-            &data[..]
-        };
+        let data = if data.last() == Some(&0) { &data[..data.len() - 1] } else { &data[..] };
 
         String::from_utf8(data.to_vec())
             .map_err(|_| Error::qdatastream("invalid UTF-8 in C string"))
@@ -271,10 +235,7 @@ mod tests {
         // Length = 4, data = [0x01, 0x02, 0x03, 0x04]
         let data = [0x00, 0x00, 0x00, 0x04, 0x01, 0x02, 0x03, 0x04];
         let mut stream = QDataStream::new(&data);
-        assert_eq!(
-            stream.read_qbytearray().unwrap(),
-            vec![0x01, 0x02, 0x03, 0x04]
-        );
+        assert_eq!(stream.read_qbytearray().unwrap(), vec![0x01, 0x02, 0x03, 0x04]);
     }
 
     #[test]

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- Redact session strings and auth keys in the CLI by default; revealing either now requires an explicit flag.
+- Replace the command-line passcode argument with hidden-prompt and stdin input modes.
+- Stop retaining the supplied passcode inside the parsed `TDesktop` object.
+- Remove credential prefixes from the diagnostic example output.
+- Upgrade `grammers` dependencies to maintained releases, removing the yanked `core2` dependency that blocked fresh installs.
+
 ## [0.1.0] - 2026-01-12
 
 ### Added

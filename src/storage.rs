@@ -79,20 +79,13 @@ fn parse_file_descriptor(data: &[u8]) -> Result<FileDescriptor> {
     hasher.update(TDATA_MAGIC);
     let computed_md5: [u8; 16] = hasher.finalize().into();
 
-    tracing::debug!(
-        "MD5 check: file={:02x?}, computed={:02x?}",
-        file_md5,
-        computed_md5
-    );
+    tracing::debug!("MD5 check: file={:02x?}, computed={:02x?}", file_md5, computed_md5);
 
     if file_md5 != computed_md5.as_slice() {
         return Err(Error::ChecksumMismatch);
     }
 
-    Ok(FileDescriptor {
-        version,
-        data: payload.to_vec(),
-    })
+    Ok(FileDescriptor { version, data: payload.to_vec() })
 }
 
 /// Key data parsed from key_data file
@@ -115,12 +108,7 @@ pub fn read_key_data(base_path: &Path, key_file: &str) -> Result<KeyData> {
     let key_encrypted = stream.read_qbytearray()?;
     let info_encrypted = stream.read_qbytearray()?;
 
-    Ok(KeyData {
-        salt,
-        key_encrypted,
-        info_encrypted,
-        version: file.version,
-    })
+    Ok(KeyData { salt, key_encrypted, info_encrypted, version: file.version })
 }
 
 /// Decrypted key info containing account indices
@@ -154,10 +142,7 @@ pub fn decrypt_key_data(key_data: &KeyData, passcode: &[u8]) -> Result<KeyInfo> 
     let count = info_stream.read_i32()?;
 
     if count <= 0 || count > MAX_ACCOUNTS as i32 {
-        return Err(Error::invalid_format(format!(
-            "invalid account count: {}",
-            count
-        )));
+        return Err(Error::invalid_format(format!("invalid account count: {}", count)));
     }
 
     let mut account_indices = Vec::with_capacity(count as usize);
@@ -168,10 +153,7 @@ pub fn decrypt_key_data(key_data: &KeyData, passcode: &[u8]) -> Result<KeyInfo> 
         }
     }
 
-    Ok(KeyInfo {
-        local_key,
-        account_indices,
-    })
+    Ok(KeyInfo { local_key, account_indices })
 }
 
 /// Read MTP data file (contains the actual auth key)
@@ -236,11 +218,8 @@ fn to_file_part(val: u64) -> String {
 
     for _ in 0..16 {
         let nibble = (v & 0x0F) as u8;
-        let c = if nibble < 0x0A {
-            (b'0' + nibble) as char
-        } else {
-            (b'A' + (nibble - 0x0A)) as char
-        };
+        let c =
+            if nibble < 0x0A { (b'0' + nibble) as char } else { (b'A' + (nibble - 0x0A)) as char };
         result.push(c);
         v >>= 4;
     }
@@ -315,10 +294,7 @@ fn parse_mtp_authorization(data: &[u8]) -> Result<MtpData> {
     let keys_count = auth_stream.read_i32()?;
 
     if !(0..=10).contains(&keys_count) {
-        return Err(Error::invalid_format(format!(
-            "invalid keys count: {}",
-            keys_count
-        )));
+        return Err(Error::invalid_format(format!("invalid keys count: {}", keys_count)));
     }
 
     // Read auth keys
@@ -341,11 +317,7 @@ fn parse_mtp_authorization(data: &[u8]) -> Result<MtpData> {
         Error::auth_key_failed(format!("no auth key found for main DC {}", main_dc_id))
     })?;
 
-    Ok(MtpData {
-        dc_id: main_dc_id,
-        user_id,
-        auth_key,
-    })
+    Ok(MtpData { dc_id: main_dc_id, user_id, auth_key })
 }
 
 /// Get the absolute path, expanding ~ if needed

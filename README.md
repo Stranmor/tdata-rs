@@ -58,13 +58,10 @@ fn main() -> Result<(), tdata_rs::Error> {
     for account in tdata.accounts() {
         println!("User ID: {}", account.user_id());
         
-        // 4. Generate session string for Grammers
+        // 4. Generate a session string for secure storage or direct import.
+        // Session strings are authentication credentials: never log them.
         let session = account.to_session_string()?;
-        println!("Session: {}", session);
-        
-        // 5. Or get raw auth key
-        let auth_key = account.auth_key_bytes();
-        println!("Auth Key: {}", hex::encode(auth_key));
+        println!("Session generated ({} bytes)", session.len());
     }
 
     Ok(())
@@ -86,8 +83,15 @@ cargo run --example cli
 # Or specify a custom path
 cargo run --example cli -- /path/to/tdata
 
-# With passcode
-cargo run --example cli -- --passcode "secret123"
+# Prompt for a passcode without echoing it or storing it in shell history
+cargo run --example cli -- --prompt-passcode
+
+# For automation, pass it through stdin rather than a command-line argument
+printf '%s\n' "$TDATA_PASSCODE" | cargo run --example cli -- --passcode-stdin
+
+# Full session strings and auth keys are opt-in because both grant account access
+cargo run --example cli -- --show-session
+cargo run --example cli -- --show-keys
 ```
 
 **Output example:**
@@ -101,20 +105,24 @@ cargo run --example cli -- --passcode "secret123"
 👤 Account #1 (Index 0)
    User ID:   123456789
    DC ID:     2
-   Session:   1BQAz... (ready for grammers)
+   Session:   [redacted; use --show-session to reveal]
+   Auth Key:  [redacted; use --show-keys to reveal]
 
 👤 Account #2 (Index 1)
    User ID:   987654321
    DC ID:     2
-   Session:   1BQBm...
+   Session:   [redacted; use --show-session to reveal]
+   Auth Key:  [redacted; use --show-keys to reveal]
 ```
 
 ## 🔒 Security Note
 
 This library deals with **sensitive authentication keys**.
 
-- ⚠️ Never share your `tdata` folder or the output of this tool.
-- ⚠️ Anyone with the `AuthKey` can access your Telegram account without 2FA.
+- ⚠️ Never share your `tdata` folder, session strings, auth keys, or output produced with a `--show-*` option.
+- ⚠️ Anyone with a session string or `AuthKey` can access the corresponding Telegram account without 2FA.
+- ✅ The CLI redacts session strings and auth keys by default.
+- ✅ Passcodes can be entered through a hidden prompt or stdin and are not retained by the parsed `TDesktop` object.
 - ✅ This tool runs locally on your machine and does not transmit keys anywhere.
 
 ## 🤝 Acknowledgements

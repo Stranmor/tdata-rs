@@ -4,9 +4,7 @@ use tdata_rs::TDesktop;
 
 fn main() {
     // Configure tracing for debug output
-    tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::DEBUG)
-        .init();
+    tracing_subscriber::fmt().with_max_level(tracing::Level::DEBUG).init();
 
     println!("=== tdata-rs Test ===\n");
 
@@ -25,26 +23,21 @@ fn main() {
                 println!("   DC ID: {}", account.dc_id());
                 println!("   User ID: {}", account.user_id());
 
-                // Show first 8 bytes of auth key (for verification)
-                let key = account.auth_key_bytes();
-                println!("   Auth key (first 8 bytes): {:02x?}", &key[..8]);
+                // Verify credential extraction without writing credential material.
+                println!("   Auth key extracted: YES");
 
-                // Try converting to session string
                 match account.to_session_string() {
                     Ok(session_str) => {
-                        println!(
-                            "   Session string (first 32 chars): {}...",
-                            &session_str[..32.min(session_str.len())]
-                        );
-                    }
+                        println!("   Session string generated: {} bytes", session_str.len());
+                    },
                     Err(e) => {
                         println!("   ❌ Failed to create session string: {}", e);
-                    }
+                    },
                 }
 
                 println!();
             }
-        }
+        },
         Err(e) => {
             eprintln!("❌ Failed to load tdata: {}", e);
             eprintln!();
@@ -53,7 +46,7 @@ fn main() {
             eprintln!("  - tdata is password-protected (use from_path_with_passcode)");
             eprintln!("  - tdata format has changed");
             std::process::exit(1);
-        }
+        },
     }
 
     println!("=== Test Complete ===");
