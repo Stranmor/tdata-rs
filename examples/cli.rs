@@ -19,10 +19,6 @@ struct Args {
     #[arg(long, conflicts_with = "prompt_passcode")]
     passcode_stdin: bool,
 
-    /// Show the legacy crate-specific credential blob (not a grammers session format)
-    #[arg(long = "show-legacy-session", alias = "show-session", hide = true)]
-    show_legacy_session: bool,
-
     /// Show full auth keys (authentication credentials)
     #[arg(long)]
     show_keys: bool,
@@ -72,7 +68,7 @@ fn main() -> anyhow::Result<()> {
         println!("📂 Reading tdata from: [redacted; use --show-identifiers to reveal]");
     }
 
-    if args.show_legacy_session || args.show_keys || args.show_identifiers {
+    if args.show_keys || args.show_identifiers {
         eprintln!(
             "WARNING: requested private account data will be written to stdout; do not capture or share it."
         );
@@ -109,14 +105,7 @@ fn main() -> anyhow::Result<()> {
         }
         println!("   DC ID:     {}", account.dc_id());
 
-        if args.show_legacy_session {
-            println!(
-                "   Legacy credential blob: {}",
-                account.to_legacy_session_string()?
-            );
-        } else {
-            println!("   Grammers:  SessionData conversion available");
-        }
+        println!("   Grammers:  SessionData conversion available");
 
         if args.show_keys {
             println!("   Auth Key:  {}", hex::encode(account.auth_key_bytes()));

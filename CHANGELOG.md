@@ -9,58 +9,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.2.1] - 2026-08-09
 
+### Security
+
+- Redact auth keys, account identifiers, storage paths, and credential-bearing
+  structures from default CLI, tracing, and `Debug` output.
+- Replace command-line passcodes with hidden-prompt and stdin input modes, and
+  stop retaining the supplied passcode in the parsed object.
+- Remove the ambiguous `to_session_string()` compatibility surface rather than
+  silently returning a different serialization than `hermes-tdata` 0.1.
+- Reject malformed binary lengths and offsets without panic-prone indexing or
+  lossy integer casts.
+- Upgrade `grammers` dependencies to maintained releases so fresh installs do
+  not depend on yanked transitive packages.
+
 ### Changed
 
 - Restore the established `hermes-tdata` package identity so existing users,
   download history, and future releases stay on one crates.io page.
 - Restore the canonical Rust import path to `hermes_tdata` and align repository,
   documentation, badges, and release metadata with that identity.
+- Replace the 0.1 session-string API with
+  `Account::to_grammers_session_data()`; version 0.2 is intentionally a breaking
+  release and migration is documented in the README.
+- Add contributor, vulnerability-reporting, dependency-update, CI, CodeQL, and
+  signed release surfaces.
 
-## [0.2.0] - 2026-08-09
+Version `0.2.0` was not published as `hermes-tdata`; `0.2.1` is used so the
+package release is never associated with the earlier short-lived repository
+tag's different bytes.
 
-### Security
+## [0.1.1] - 2026-03-12
 
-- Redact session strings and auth keys in the CLI by default; revealing either now requires an explicit flag.
-- Replace the command-line passcode argument with hidden-prompt and stdin input modes.
-- Stop retaining the supplied passcode inside the parsed `TDesktop` object.
-- Redact credential prefixes, storage paths, and account identifiers from diagnostic output by default.
-- Redact storage paths, account identifiers, and auth keys from public `Debug` output.
-- Upgrade `grammers` dependencies to maintained releases, removing the yanked `core2` dependency that blocked fresh installs.
+- Last patch release from the original Hermes monorepo implementation.
+- Published on crates.io under the established `hermes-tdata` identity.
 
-### Changed
+## [0.1.0] - 2026-03-12
 
-- Publish the first crates.io release from the current security-hardened source.
-- Align the crate manifest with the already-supported Rust 2024 edition and Rust 1.85 MSRV.
-- Make `grammers_session::SessionData` the documented interoperability path and deprecate the misleading crate-specific `to_session_string()` name.
-- Make legacy credential export fallible instead of truncating invalid datacenter identifiers.
-- Reject out-of-bounds binary lengths and offsets without panic-prone indexing or lossy integer casts.
-- Add contributor, vulnerability-reporting, dependency-update, and release surfaces.
-
-## [0.1.0] - 2026-01-12
-
-This version existed in the repository but was not published to crates.io.
-
-### Added
-
-- Initial release
-- Pure Rust implementation of Telegram Desktop `tdata` parser
-- PBKDF2-SHA512 key derivation with custom Telegram parameters
-- AES-256-IGE encryption/decryption
-- MD5 and SHA1 checksum verification
-- QDataStream (Qt 5.1 binary format) parser
-- MTP authorization data extraction
-- Support for 64-bit user IDs (kWideIdsTag)
-- Multi-account support (up to 3 accounts)
-- Legacy crate-specific credential string generation
-- CLI utility for quick session export
-
-### Security
-
-- All cryptographic operations performed locally
-- No network requests, no telemetry
-- Auth keys never leave your machine
+- Initial public crates.io release from the Hermes monorepo.
 
 [Unreleased]: https://github.com/Stranmor/hermes-tdata/compare/v0.2.1...HEAD
 [0.2.1]: https://github.com/Stranmor/hermes-tdata/compare/v0.2.0...v0.2.1
-[0.2.0]: https://github.com/Stranmor/hermes-tdata/compare/ad6eb902bda7d31c052951e1128dbb8e015a0f3f...v0.2.0
-[0.1.0]: https://github.com/Stranmor/hermes-tdata/tree/ad6eb902bda7d31c052951e1128dbb8e015a0f3f
+[0.1.1]: https://crates.io/crates/hermes-tdata/0.1.1
+[0.1.0]: https://crates.io/crates/hermes-tdata/0.1.0

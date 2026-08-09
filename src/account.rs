@@ -3,9 +3,7 @@
 use std::fmt;
 use std::net::Ipv4Addr;
 
-use base64::{engine::general_purpose::STANDARD, Engine as _};
-
-use crate::{Error, Result, AUTH_KEY_SIZE};
+use crate::AUTH_KEY_SIZE;
 
 /// Telegram datacenter addresses (production)
 const DC_ADDRESSES: [(i32, Ipv4Addr, u16); 5] = [
@@ -114,35 +112,6 @@ impl Account {
 
         session_data
     }
-
-    /// Export the legacy crate-specific credential blob.
-    ///
-    /// This is not a native `grammers` session serialization. New code should use
-    /// [`Self::to_grammers_session_data`] and import that value into a `grammers`
-    /// session storage.
-    pub fn to_legacy_session_string(&self) -> Result<String> {
-        // Legacy format: base64(version(1) | dc_id(1) | user_id(8) | auth_key(256)).
-        let mut data = Vec::with_capacity(1 + 1 + 8 + 256);
-        let dc_id = u8::try_from(self.dc_id).map_err(|_| {
-            Error::invalid_format(format!("datacenter ID cannot be encoded: {}", self.dc_id))
-        })?;
-
-        data.push(1u8);
-        data.push(dc_id);
-        data.extend_from_slice(&self.user_id.to_le_bytes());
-        data.extend_from_slice(&self.auth_key);
-
-        Ok(STANDARD.encode(data))
-    }
-
-    /// Export the legacy crate-specific credential blob.
-    #[deprecated(
-        since = "0.2.1",
-        note = "this is not a native grammers session string; use to_grammers_session_data()"
-    )]
-    pub fn to_session_string(&self) -> Result<String> {
-        self.to_legacy_session_string()
-    }
 }
 
 #[cfg(test)]
@@ -168,15 +137,5 @@ mod tests {
         assert!(debug.contains("<redacted>"));
         assert!(!debug.contains("12345678"));
         assert!(!debug.contains("171, 171"));
-    }
-
-    #[test]
-    fn legacy_session_export_is_fallible() -> Result<()> {
-        let account = Account::new(0, 2, 12_345_678, [0xAB; AUTH_KEY_SIZE]);
-        assert!(!account.to_legacy_session_string()?.is_empty());
-
-        let invalid = Account::new(0, -1, 12_345_678, [0xAB; AUTH_KEY_SIZE]);
-        assert!(invalid.to_legacy_session_string().is_err());
-        Ok(())
     }
 }

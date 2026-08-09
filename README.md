@@ -41,6 +41,13 @@ Add this to your `Cargo.toml`:
 hermes-tdata = "0.2"
 ```
 
+### Migrating from 0.1
+
+Version 0.2 is a security-focused API rewrite. Import `TDesktop` from the crate
+root and use `Account::to_grammers_session_data()` as the credential-bearing
+handoff to a `grammers` session storage. The old `to_session_string()` API was
+removed rather than silently changing its serialized format.
+
 ## Quick start
 
 ### Convert tdata to grammers SessionData
@@ -117,7 +124,7 @@ This library handles live authentication credentials.
 
 - Never share your `tdata` folder, session data, auth keys, or output produced with a `--show-*` option.
 - Anyone with session data or an `AuthKey` can access the corresponding Telegram account without 2FA.
-- The CLI does not print session data and redacts paths, account identifiers, and auth keys by default.
+- The CLI does not serialize or print session data and redacts paths, account identifiers, and auth keys by default.
 - `Debug` output for `Account`, `TDesktop`, and `AuthKey` redacts paths, account identifiers, and key material.
 - Passcodes can be entered through a hidden prompt or stdin and are not retained by the parsed `TDesktop` object.
 - The crate performs no network requests.

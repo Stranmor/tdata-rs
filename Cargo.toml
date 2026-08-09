@@ -35,8 +35,6 @@ md-5 = "0.10"
 
 # Binary parsing
 byteorder = "1.5"
-base64 = "0.22"
-
 # Error handling
 thiserror = "2"
 

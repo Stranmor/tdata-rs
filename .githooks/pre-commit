@@ -1,5 +1,5 @@
 #!/bin/sh
-# Pre-commit hook for tdata-rs
+# Pre-commit hook for hermes-tdata
 # Mirrors all CI checks to catch issues BEFORE push
 
 set -e
