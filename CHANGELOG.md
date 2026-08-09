@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-08-09
+
+### Changed
+
+- Restore the established `hermes-tdata` package identity so existing users,
+  download history, and future releases stay on one crates.io page.
+- Restore the canonical Rust import path to `hermes_tdata` and align repository,
+  documentation, badges, and release metadata with that identity.
+
 ## [0.2.0] - 2026-08-09
 
 ### Security
@@ -51,6 +60,7 @@ This version existed in the repository but was not published to crates.io.
 - No network requests, no telemetry
 - Auth keys never leave your machine
 
-[Unreleased]: https://github.com/Stranmor/tdata-rs/compare/v0.2.0...HEAD
-[0.2.0]: https://github.com/Stranmor/tdata-rs/compare/ad6eb902bda7d31c052951e1128dbb8e015a0f3f...v0.2.0
-[0.1.0]: https://github.com/Stranmor/tdata-rs/tree/ad6eb902bda7d31c052951e1128dbb8e015a0f3f
+[Unreleased]: https://github.com/Stranmor/hermes-tdata/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/Stranmor/hermes-tdata/compare/v0.2.0...v0.2.1
+[0.2.0]: https://github.com/Stranmor/hermes-tdata/compare/ad6eb902bda7d31c052951e1128dbb8e015a0f3f...v0.2.0
+[0.1.0]: https://github.com/Stranmor/hermes-tdata/tree/ad6eb902bda7d31c052951e1128dbb8e015a0f3f

@@ -1,8 +1,8 @@
-//! Error types for tdata-rs
+//! Error types for hermes-tdata
 
 use std::path::PathBuf;
 
-/// Result type alias for tdata-rs operations
+/// Result type alias for hermes-tdata operations
 pub type Result<T> = std::result::Result<T, Error>;
 
 /// Errors that can occur during tdata parsing

@@ -115,7 +115,7 @@ impl Account {
         session_data
     }
 
-    /// Export the legacy tdata-rs-specific credential blob.
+    /// Export the legacy crate-specific credential blob.
     ///
     /// This is not a native `grammers` session serialization. New code should use
     /// [`Self::to_grammers_session_data`] and import that value into a `grammers`
@@ -135,9 +135,9 @@ impl Account {
         Ok(STANDARD.encode(data))
     }
 
-    /// Export the legacy tdata-rs-specific credential blob.
+    /// Export the legacy crate-specific credential blob.
     #[deprecated(
-        since = "0.2.0",
+        since = "0.2.1",
         note = "this is not a native grammers session string; use to_grammers_session_data()"
     )]
     pub fn to_session_string(&self) -> Result<String> {

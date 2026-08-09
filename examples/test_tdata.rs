@@ -1,6 +1,6 @@
-//! Test binary for tdata-rs
+//! Test binary for hermes-tdata
 
-use tdata_rs::TDesktop;
+use hermes_tdata::TDesktop;
 
 fn main() {
     // Configure tracing for debug output
@@ -8,7 +8,7 @@ fn main() {
         .with_max_level(tracing::Level::DEBUG)
         .init();
 
-    println!("=== tdata-rs Test ===\n");
+    println!("=== hermes-tdata Test ===\n");
 
     // Try loading from default location
     match TDesktop::from_default() {

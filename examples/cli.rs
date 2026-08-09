@@ -1,7 +1,7 @@
 use clap::Parser;
+use hermes_tdata::TDesktop;
 use std::io::BufRead;
 use std::path::PathBuf;
-use tdata_rs::TDesktop;
 use zeroize::Zeroize;
 
 #[derive(Parser, Debug)]
@@ -19,7 +19,7 @@ struct Args {
     #[arg(long, conflicts_with = "prompt_passcode")]
     passcode_stdin: bool,
 
-    /// Show the legacy tdata-rs-specific credential blob (not a grammers session format)
+    /// Show the legacy crate-specific credential blob (not a grammers session format)
     #[arg(long = "show-legacy-session", alias = "show-session", hide = true)]
     show_legacy_session: bool,
 

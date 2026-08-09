@@ -1,4 +1,4 @@
-//! # tdata-rs
+//! # hermes-tdata
 //!
 //! A pure Rust library for parsing Telegram Desktop `tdata` folders and converting
 //! them to grammers sessions.
@@ -14,9 +14,9 @@
 //! ## Example
 //!
 //! ```rust,no_run
-//! use tdata_rs::TDesktop;
+//! use hermes_tdata::TDesktop;
 //!
-//! fn main() -> Result<(), tdata_rs::Error> {
+//! fn main() -> Result<(), hermes_tdata::Error> {
 //!     // Load tdata from default location
 //!     let tdesktop = TDesktop::from_path("/path/to/tdata")?;
 //!     

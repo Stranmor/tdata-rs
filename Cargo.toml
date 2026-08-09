@@ -1,14 +1,14 @@
 [package]
-name = "tdata-rs"
-version = "0.2.0"
+name = "hermes-tdata"
+version = "0.2.1"
 edition = "2024"
 rust-version = "1.85.0"
 description = "Pure Rust parser for Telegram Desktop tdata storage with grammers session conversion"
 authors = ["Stranmor"]
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/Stranmor/tdata-rs"
-homepage = "https://github.com/Stranmor/tdata-rs"
-documentation = "https://docs.rs/tdata-rs"
+repository = "https://github.com/Stranmor/hermes-tdata"
+homepage = "https://github.com/Stranmor/hermes-tdata"
+documentation = "https://docs.rs/hermes-tdata"
 keywords = ["telegram", "tdata", "parser", "mtproto", "tdesktop"]
 categories = ["cryptography", "parsing", "api-bindings"]
 readme = "README.md"

@@ -30,7 +30,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          version="$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "tdata-rs") | .version')"
+          version="$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "hermes-tdata") | .version')"
           test "v${version}" = "${GITHUB_REF_NAME}"
           git fetch --no-tags origin main:refs/remotes/origin/main
           test "$(git rev-parse HEAD)" = "$(git rev-parse refs/remotes/origin/main)"
@@ -73,4 +73,4 @@ jobs:
           gh release create "${GITHUB_REF_NAME}" ./*.crate SHA256SUMS \
             --verify-tag \
             --generate-notes \
-            --title "tdata-rs ${GITHUB_REF_NAME}"
+            --title "hermes-tdata ${GITHUB_REF_NAME}"

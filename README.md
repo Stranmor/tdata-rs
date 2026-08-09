@@ -1,10 +1,10 @@
-# tdata-rs
+# hermes-tdata
 
 **Pure Rust parser for Telegram Desktop's `tdata` storage.**
 
-[![Crates.io](https://img.shields.io/crates/v/tdata-rs.svg)](https://crates.io/crates/tdata-rs)
-[![Documentation](https://docs.rs/tdata-rs/badge.svg)](https://docs.rs/tdata-rs)
-[![CI](https://github.com/Stranmor/tdata-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/Stranmor/tdata-rs/actions/workflows/ci.yml)
+[![Crates.io](https://img.shields.io/crates/v/hermes-tdata.svg)](https://crates.io/crates/hermes-tdata)
+[![Documentation](https://docs.rs/hermes-tdata/badge.svg)](https://docs.rs/hermes-tdata)
+[![CI](https://github.com/Stranmor/hermes-tdata/actions/workflows/ci.yml/badge.svg)](https://github.com/Stranmor/hermes-tdata/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSE-MIT)
 
 Parse Telegram Desktop's local `tdata` storage and convert authorized account
@@ -38,7 +38,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-tdata-rs = "0.2"
+hermes-tdata = "0.2"
 ```
 
 ## Quick start
@@ -46,9 +46,9 @@ tdata-rs = "0.2"
 ### Convert tdata to grammers SessionData
 
 ```rust
-use tdata_rs::TDesktop;
+use hermes_tdata::TDesktop;
 
-fn main() -> Result<(), tdata_rs::Error> {
+fn main() -> Result<(), hermes_tdata::Error> {
     let tdata = TDesktop::from_default()?;
 
     println!("Found {} account(s)", tdata.accounts().len());
@@ -70,8 +70,8 @@ redacted unless an explicit `--show-*` flag is supplied.
 
 ```bash
 # Clone and run
-git clone https://github.com/Stranmor/tdata-rs
-cd tdata-rs
+git clone https://github.com/Stranmor/hermes-tdata
+cd hermes-tdata
 
 # Run with default tdata path
 cargo run --example cli
