@@ -14,7 +14,6 @@ fn main() {
     match TDesktop::from_default() {
         Ok(tdesktop) => {
             println!("✅ Successfully loaded tdata!");
-            println!("   Path: {:?}", tdesktop.base_path());
             println!("   App version: {}", tdesktop.app_version());
             println!("   Accounts: {}", tdesktop.accounts_count());
             println!("   Has passcode: {}", tdesktop.has_passcode());
@@ -23,19 +22,16 @@ fn main() {
             for (i, account) in tdesktop.accounts().iter().enumerate() {
                 println!("Account {} (index {}):", i, account.index());
                 println!("   DC ID: {}", account.dc_id());
-                println!("   User ID: {}", account.user_id());
+                println!("   User ID: [redacted]");
 
                 // Verify credential extraction without writing credential material.
                 println!("   Auth key extracted: YES");
 
-                match account.to_session_string() {
-                    Ok(session_str) => {
-                        println!("   Session string generated: {} bytes", session_str.len());
-                    }
-                    Err(e) => {
-                        println!("   ❌ Failed to create session string: {}", e);
-                    }
-                }
+                let session_data = account.to_grammers_session_data();
+                println!(
+                    "   Grammers SessionData prepared for DC {}",
+                    session_data.home_dc
+                );
 
                 println!();
             }

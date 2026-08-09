@@ -1,0 +1,48 @@
+name: Bug report
+description: Report a reproducible parser or compatibility defect using synthetic data.
+title: "bug: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: Never attach real `tdata`, session strings, authentication keys, passcodes, or account identifiers.
+  - type: input
+    id: version
+    attributes:
+      label: tdata-rs version
+      placeholder: 0.2.0
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Platform and Telegram Desktop version
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: Use a synthetic fixture or describe the binary shape without credentials.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Credential safety
+      options:
+        - label: I removed all real account data and credentials from this report.
+          required: true

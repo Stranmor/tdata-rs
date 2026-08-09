@@ -2,21 +2,30 @@
 //!
 //! Handles reading and parsing of key files, map files, and account data.
 
+use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::crypto::{create_local_key, decrypt_local, AuthKey};
 use crate::qdatastream::QDataStream;
-use crate::{Error, Result, MAX_ACCOUNTS};
+use crate::{Error, Result, AUTH_KEY_SIZE, MAX_ACCOUNTS};
 
 /// Magic bytes at the start of tdata files
 const TDATA_MAGIC: [u8; 4] = [0x54, 0x44, 0x46, 0x24]; // "TDF$"
 
 /// File descriptor for reading tdata files
-#[derive(Debug)]
 pub struct FileDescriptor {
     pub version: u32,
     pub data: Vec<u8>,
+}
+
+impl fmt::Debug for FileDescriptor {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("FileDescriptor")
+            .field("version", &self.version)
+            .field("data_len", &self.data.len())
+            .finish()
+    }
 }
 
 /// Read a tdata file
@@ -24,15 +33,15 @@ pub fn read_file(name: &str, base_path: &Path) -> Result<FileDescriptor> {
     let path = base_path.join(name);
     let path_s = base_path.join(format!("{}s", name));
 
-    tracing::debug!("Trying to read file: {:?}", path);
+    tracing::debug!("Trying to read tdata file: {}", name);
 
     // Try main file first, then backup (s suffix)
     // Use is_file() to skip directories
     let file_data = if path.is_file() {
-        tracing::debug!("Reading main file: {:?}", path);
+        tracing::debug!("Reading primary tdata file");
         fs::read(&path)?
     } else if path_s.is_file() {
-        tracing::debug!("Reading backup file: {:?}", path_s);
+        tracing::debug!("Reading backup tdata file");
         fs::read(&path_s)?
     } else {
         return Err(Error::FileNotFound {
@@ -53,37 +62,55 @@ pub fn read_file(name: &str, base_path: &Path) -> Result<FileDescriptor> {
 /// - bytes[8..len-16]: data payload
 /// - bytes[len-16..len]: MD5 checksum of (data + dataSize + version + magic)
 fn parse_file_descriptor(data: &[u8]) -> Result<FileDescriptor> {
-    if data.len() < 8 + 16 {
+    const HEADER_SIZE: usize = 8;
+    const CHECKSUM_SIZE: usize = 16;
+    const MIN_FILE_SIZE: usize = 24;
+
+    if data.len() < MIN_FILE_SIZE {
         return Err(Error::invalid_format("file too short"));
     }
 
-    // Check magic
-    if data[0..4] != TDATA_MAGIC {
+    let header = data
+        .get(..HEADER_SIZE)
+        .ok_or_else(|| Error::invalid_format("missing file header"))?;
+    let magic = header
+        .get(..TDATA_MAGIC.len())
+        .ok_or_else(|| Error::invalid_format("missing file magic"))?;
+
+    if magic != TDATA_MAGIC {
         return Err(Error::invalid_format("invalid file magic"));
     }
 
-    // Read version (little endian)
-    let version = u32::from_le_bytes([data[4], data[5], data[6], data[7]]);
+    let version_bytes: [u8; 4] = header
+        .get(4..HEADER_SIZE)
+        .ok_or_else(|| Error::invalid_format("missing file version"))?
+        .try_into()
+        .map_err(|_| Error::invalid_format("invalid file version"))?;
+    let version = u32::from_le_bytes(version_bytes);
 
-    // Data is between header and MD5
-    let data_size = data.len() - 8 - 16;
-    let payload = &data[8..8 + data_size];
-    let file_md5 = &data[data.len() - 16..];
+    let checksum_start = data
+        .len()
+        .checked_sub(CHECKSUM_SIZE)
+        .ok_or_else(|| Error::invalid_format("missing file checksum"))?;
+    let payload = data
+        .get(HEADER_SIZE..checksum_start)
+        .ok_or_else(|| Error::invalid_format("invalid file payload bounds"))?;
+    let file_md5 = data
+        .get(checksum_start..)
+        .ok_or_else(|| Error::invalid_format("missing file checksum"))?;
+    let data_size = u32::try_from(payload.len())
+        .map_err(|_| Error::invalid_format("tdata payload is too large"))?;
 
     // Verify MD5: data + dataSize(LE) + version(LE) + magic
     use md5::{Digest, Md5};
     let mut hasher = Md5::new();
     hasher.update(payload);
-    hasher.update((data_size as u32).to_le_bytes());
+    hasher.update(data_size.to_le_bytes());
     hasher.update(version.to_le_bytes());
     hasher.update(TDATA_MAGIC);
     let computed_md5: [u8; 16] = hasher.finalize().into();
 
-    tracing::debug!(
-        "MD5 check: file={:02x?}, computed={:02x?}",
-        file_md5,
-        computed_md5
-    );
+    tracing::debug!("Computed tdata file checksum");
 
     if file_md5 != computed_md5.as_slice() {
         return Err(Error::ChecksumMismatch);
@@ -96,12 +123,22 @@ fn parse_file_descriptor(data: &[u8]) -> Result<FileDescriptor> {
 }
 
 /// Key data parsed from key_data file
-#[derive(Debug)]
 pub struct KeyData {
     pub salt: Vec<u8>,
     pub key_encrypted: Vec<u8>,
     pub info_encrypted: Vec<u8>,
     pub version: u32,
+}
+
+impl fmt::Debug for KeyData {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("KeyData")
+            .field("salt_len", &self.salt.len())
+            .field("key_encrypted_len", &self.key_encrypted.len())
+            .field("info_encrypted_len", &self.info_encrypted.len())
+            .field("version", &self.version)
+            .finish()
+    }
 }
 
 /// Parse the key_data file
@@ -145,25 +182,30 @@ pub fn decrypt_key_data(key_data: &KeyData, passcode: &[u8]) -> Result<KeyInfo> 
         )));
     }
 
-    let local_key = AuthKey::from_bytes(&decrypted_key[..256])?;
+    let local_key_bytes = decrypted_key
+        .get(..AUTH_KEY_SIZE)
+        .ok_or_else(|| Error::invalid_format("decrypted key is incomplete"))?;
+    let local_key = AuthKey::from_bytes(local_key_bytes)?;
 
     // Decrypt info to get account indices
     let decrypted_info = decrypt_local(&key_data.info_encrypted, &local_key)?;
     let mut info_stream = QDataStream::new(&decrypted_info);
 
-    let count = info_stream.read_i32()?;
+    let count_raw = info_stream.read_i32()?;
+    let count = usize::try_from(count_raw)
+        .map_err(|_| Error::invalid_format(format!("invalid account count: {count_raw}")))?;
 
-    if count <= 0 || count > MAX_ACCOUNTS as i32 {
+    if count == 0 || count > MAX_ACCOUNTS {
         return Err(Error::invalid_format(format!(
             "invalid account count: {}",
-            count
+            count_raw
         )));
     }
 
-    let mut account_indices = Vec::with_capacity(count as usize);
+    let mut account_indices = Vec::with_capacity(count);
     for _ in 0..count {
         let index = info_stream.read_i32()?;
-        if index >= 0 && index < MAX_ACCOUNTS as i32 {
+        if usize::try_from(index).is_ok_and(|value| value < MAX_ACCOUNTS) {
             account_indices.push(index);
         }
     }
@@ -209,7 +251,7 @@ pub fn read_mtp_data(
 fn compose_data_string(key_file: &str, index: i32) -> String {
     let base = key_file.replace('#', "");
     if index > 0 {
-        format!("{}#{}", base, index + 1)
+        format!("{}#{}", base, index.saturating_add(1))
     } else {
         base
     }
@@ -224,9 +266,8 @@ fn compute_data_name_key(data_name: &str) -> u64 {
     let result: [u8; 16] = hasher.finalize().into();
 
     // Take lower 64 bits (little endian)
-    u64::from_le_bytes([
-        result[0], result[1], result[2], result[3], result[4], result[5], result[6], result[7],
-    ])
+    let [b0, b1, b2, b3, b4, b5, b6, b7, _, _, _, _, _, _, _, _] = result;
+    u64::from_le_bytes([b0, b1, b2, b3, b4, b5, b6, b7])
 }
 
 /// Convert a FileKey (u64) to a 16-character hex file name
@@ -235,13 +276,12 @@ fn to_file_part(val: u64) -> String {
     let mut v = val;
 
     for _ in 0..16 {
-        let nibble = (v & 0x0F) as u8;
-        let c = if nibble < 0x0A {
-            (b'0' + nibble) as char
-        } else {
-            (b'A' + (nibble - 0x0A)) as char
-        };
-        result.push(c);
+        let digit = u32::try_from(v & 0x0F).unwrap_or_default();
+        result.push(
+            char::from_digit(digit, 16)
+                .unwrap_or('0')
+                .to_ascii_uppercase(),
+        );
         v >>= 4;
     }
 
@@ -249,11 +289,20 @@ fn to_file_part(val: u64) -> String {
 }
 
 /// MTP authorization data
-#[derive(Debug)]
 pub struct MtpData {
     pub dc_id: i32,
     pub user_id: i64,
     pub auth_key: [u8; 256],
+}
+
+impl fmt::Debug for MtpData {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("MtpData")
+            .field("dc_id", &self.dc_id)
+            .field("user_id", &"<redacted>")
+            .field("auth_key", &"<redacted>")
+            .finish()
+    }
 }
 
 /// Special tag for wide (64-bit) user IDs
@@ -297,7 +346,8 @@ fn parse_mtp_authorization(data: &[u8]) -> Result<MtpData> {
     let second_int = auth_stream.read_i32()?;
 
     // Check for kWideIdsTag (new format with 64-bit user ID)
-    let combined = ((first_int as i64) << 32) | (second_int as u32 as i64);
+    let second_bits = u32::from_ne_bytes(second_int.to_ne_bytes());
+    let combined = (i64::from(first_int) << 32) | i64::from(second_bits);
 
     let (user_id, main_dc_id) = if combined == K_WIDE_IDS_TAG {
         // New format: next is int64 userId, then int32 mainDcId
@@ -309,7 +359,7 @@ fn parse_mtp_authorization(data: &[u8]) -> Result<MtpData> {
         (first_int as i64, second_int)
     };
 
-    tracing::debug!("MTP auth: user_id={}, main_dc_id={}", user_id, main_dc_id);
+    tracing::debug!("Parsed MTP authorization for main DC {}", main_dc_id);
 
     // Read keys count
     let keys_count = auth_stream.read_i32()?;
@@ -349,13 +399,17 @@ fn parse_mtp_authorization(data: &[u8]) -> Result<MtpData> {
 }
 
 /// Get the absolute path, expanding ~ if needed
-pub fn get_absolute_path(path: &str) -> PathBuf {
-    if path.starts_with('~') {
+pub fn get_absolute_path(path: &Path) -> PathBuf {
+    if path == Path::new("~") {
+        return dirs::home_dir().unwrap_or_else(|| path.to_path_buf());
+    }
+
+    if let Ok(relative) = path.strip_prefix("~/") {
         if let Some(home) = dirs::home_dir() {
-            return home.join(&path[2..]);
+            return home.join(relative);
         }
     }
-    PathBuf::from(path)
+    path.to_path_buf()
 }
 
 /// Get default tdata path for the current OS
@@ -378,5 +432,41 @@ pub fn get_default_tdata_path() -> Option<PathBuf> {
     #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
     {
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn debug_redacts_storage_payloads_and_mtp_credentials() {
+        let file = FileDescriptor {
+            version: 1,
+            data: vec![0xAB; 32],
+        };
+        let key_data = KeyData {
+            salt: vec![0xCD; 16],
+            key_encrypted: vec![0xEF; 32],
+            info_encrypted: vec![0x12; 32],
+            version: 1,
+        };
+        let mtp = MtpData {
+            dc_id: 2,
+            user_id: 12_345_678,
+            auth_key: [0xAB; 256],
+        };
+
+        let file_debug = format!("{file:?}");
+        let key_debug = format!("{key_data:?}");
+        let mtp_debug = format!("{mtp:?}");
+
+        assert!(file_debug.contains("data_len"));
+        assert!(!file_debug.contains("171, 171"));
+        assert!(key_debug.contains("key_encrypted_len"));
+        assert!(!key_debug.contains("205, 205"));
+        assert!(mtp_debug.contains("<redacted>"));
+        assert!(!mtp_debug.contains("12345678"));
+        assert!(!mtp_debug.contains("171, 171"));
     }
 }

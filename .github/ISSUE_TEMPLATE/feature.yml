@@ -1,0 +1,26 @@
+name: Feature request
+description: Propose a bounded parser, format, or interoperability improvement.
+title: "feature: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: User need
+      description: What cannot be done safely or correctly today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+    validations:
+      required: true
+  - type: textarea
+    id: boundary
+    attributes:
+      label: Compatibility and credential boundary
+      description: Explain affected formats and how real account material remains out of tests and reports.
+    validations:
+      required: true

@@ -19,13 +19,17 @@ struct Args {
     #[arg(long, conflicts_with = "prompt_passcode")]
     passcode_stdin: bool,
 
-    /// Show full session strings (authentication credentials)
-    #[arg(long)]
-    show_session: bool,
+    /// Show the legacy tdata-rs-specific credential blob (not a grammers session format)
+    #[arg(long = "show-legacy-session", alias = "show-session", hide = true)]
+    show_legacy_session: bool,
 
     /// Show full auth keys (authentication credentials)
     #[arg(long)]
     show_keys: bool,
+
+    /// Show the local storage path and Telegram user identifiers
+    #[arg(long)]
+    show_identifiers: bool,
 }
 
 fn read_passcode(args: &Args) -> anyhow::Result<Option<String>> {
@@ -62,11 +66,15 @@ fn main() -> anyhow::Result<()> {
         PathBuf::from(&args.path)
     };
 
-    println!("📂 Reading tdata from: {:?}", path);
+    if args.show_identifiers {
+        println!("📂 Reading tdata from: {:?}", path);
+    } else {
+        println!("📂 Reading tdata from: [redacted; use --show-identifiers to reveal]");
+    }
 
-    if args.show_session || args.show_keys {
+    if args.show_legacy_session || args.show_keys || args.show_identifiers {
         eprintln!(
-            "WARNING: requested credentials will be written to stdout; do not capture or share it."
+            "WARNING: requested private account data will be written to stdout; do not capture or share it."
         );
     }
 
@@ -89,16 +97,25 @@ fn main() -> anyhow::Result<()> {
     println!();
 
     for (i, account) in tdata.accounts().iter().enumerate() {
-        println!("👤 Account #{} (Index {})", i + 1, account.index());
-        println!("   User ID:   {}", account.user_id());
+        println!(
+            "👤 Account #{} (Index {})",
+            i.saturating_add(1),
+            account.index()
+        );
+        if args.show_identifiers {
+            println!("   User ID:   {}", account.user_id());
+        } else {
+            println!("   User ID:   [redacted; use --show-identifiers to reveal]");
+        }
         println!("   DC ID:     {}", account.dc_id());
 
-        if args.show_session {
-            if let Ok(session) = account.to_session_string() {
-                println!("   Session:   {}", session);
-            }
+        if args.show_legacy_session {
+            println!(
+                "   Legacy credential blob: {}",
+                account.to_legacy_session_string()?
+            );
         } else {
-            println!("   Session:   [redacted; use --show-session to reveal]");
+            println!("   Grammers:  SessionData conversion available");
         }
 
         if args.show_keys {

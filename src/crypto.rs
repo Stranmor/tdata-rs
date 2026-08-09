@@ -47,7 +47,9 @@ impl AuthKey {
         Ok(Self { data })
     }
 
-    /// Get raw bytes
+    /// Get raw key bytes.
+    ///
+    /// This is credential material. Never log, serialize, or expose it.
     pub fn as_bytes(&self) -> &[u8; AUTH_KEY_SIZE] {
         &self.data
     }
@@ -113,29 +115,24 @@ pub fn decrypt_local(encrypted: &[u8], key: &AuthKey) -> Result<Vec<u8>> {
     }
 
     // Split: first 16 bytes is the encrypted key (msg_key), rest is encrypted data
-    let encrypted_key = &encrypted[0..16];
-    let encrypted_data = &encrypted[16..];
+    let (encrypted_key, encrypted_data) = encrypted.split_at(AES_BLOCK_SIZE);
+    let encrypted_key: &[u8; AES_BLOCK_SIZE] = encrypted_key
+        .try_into()
+        .map_err(|_| Error::invalid_format("invalid encrypted message key"))?;
 
-    tracing::debug!(
-        "decrypt_local: encrypted len={}, msg_key={:02x?}",
-        encrypted.len(),
-        encrypted_key
-    );
+    tracing::debug!("decrypt_local: encrypted len={}", encrypted.len());
 
     // Prepare AES key and IV using msg_key
-    let (aes_key, aes_iv) = prepare_aes_oldmtp(key.as_bytes(), encrypted_key);
+    let (aes_key, aes_iv) = prepare_aes_oldmtp(key.as_bytes(), encrypted_key)?;
 
     // Decrypt using AES-256-IGE
     let decrypted = ige_decrypt(&aes_key, &aes_iv, encrypted_data);
 
     // Verify: SHA1(decrypted)[0..16] must equal encrypted_key
-    let check_hash = &sha1_hash(&decrypted)[0..16];
+    let digest = sha1_hash(&decrypted);
+    let (check_hash, _) = digest.split_at(AES_BLOCK_SIZE);
 
-    tracing::debug!(
-        "SHA1 check: expected={:02x?}, computed={:02x?}",
-        encrypted_key,
-        check_hash
-    );
+    tracing::debug!("Computed decrypted payload integrity check");
 
     if check_hash != encrypted_key {
         return Err(Error::ChecksumMismatch);
@@ -146,8 +143,13 @@ pub fn decrypt_local(encrypted: &[u8], key: &AuthKey) -> Result<Vec<u8>> {
         return Err(Error::DecryptionFailed);
     }
 
-    let original_len =
-        u32::from_le_bytes([decrypted[0], decrypted[1], decrypted[2], decrypted[3]]) as usize;
+    let original_len_bytes: [u8; 4] = decrypted
+        .get(..4)
+        .ok_or(Error::DecryptionFailed)?
+        .try_into()
+        .map_err(|_| Error::DecryptionFailed)?;
+    let original_len = usize::try_from(u32::from_le_bytes(original_len_bytes))
+        .map_err(|_| Error::invalid_format("decrypted payload length is too large"))?;
 
     let full_len = encrypted_data.len();
 
@@ -165,48 +167,65 @@ pub fn decrypt_local(encrypted: &[u8], key: &AuthKey) -> Result<Vec<u8>> {
     }
 
     // Skip the length prefix, return actual data
-    Ok(decrypted[4..original_len].to_vec())
+    decrypted
+        .get(4..original_len)
+        .map(ToOwned::to_owned)
+        .ok_or_else(|| Error::invalid_format("invalid decrypted payload bounds"))
 }
 
 /// Prepare AES key and IV from auth key and message key (old MTProto 1.0 style)
 ///
 /// This matches tdesktop's prepareAES_oldmtp with send=false (for decrypt)
 /// For decrypt: x = 8
-fn prepare_aes_oldmtp(auth_key: &[u8], msg_key: &[u8]) -> ([u8; AES_KEY_SIZE], [u8; AES_KEY_SIZE]) {
-    // For decrypt, x = 8 (send=false in tdesktop)
-    let x: usize = 8;
+fn prepare_aes_oldmtp(
+    auth_key: &[u8; AUTH_KEY_SIZE],
+    msg_key: &[u8; AES_BLOCK_SIZE],
+) -> Result<([u8; AES_KEY_SIZE], [u8; AES_KEY_SIZE])> {
+    let auth_range = |range| {
+        auth_key
+            .get(range)
+            .ok_or_else(|| Error::invalid_format("auth key is too short for AES derivation"))
+    };
 
-    // sha1_a = SHA1(msgKey + key[x..x+32])
-    let sha1_a = sha1_hash_2(msg_key, &auth_key[x..x + 32]);
+    // sha1_a = SHA1(msgKey + key[8..40])
+    let sha1_a = sha1_hash_2(msg_key, auth_range(8..40)?);
 
     // sha1_b = SHA1(key[32+x..48+x] + msgKey + key[48+x..64+x])
-    let sha1_b = sha1_hash_3(
-        &auth_key[32 + x..48 + x],
-        msg_key,
-        &auth_key[48 + x..64 + x],
-    );
+    let sha1_b = sha1_hash_3(auth_range(40..56)?, msg_key, auth_range(56..72)?);
 
-    // sha1_c = SHA1(key[64+x..96+x] + msgKey)
-    let sha1_c = sha1_hash_2(&auth_key[64 + x..96 + x], msg_key);
+    // sha1_c = SHA1(key[72..104] + msgKey)
+    let sha1_c = sha1_hash_2(auth_range(72..104)?, msg_key);
 
-    // sha1_d = SHA1(msgKey + key[96+x..128+x])
-    let sha1_d = sha1_hash_2(msg_key, &auth_key[96 + x..128 + x]);
-
-    let mut key = [0u8; AES_KEY_SIZE];
-    let mut iv = [0u8; AES_KEY_SIZE];
+    // sha1_d = SHA1(msgKey + key[104..136])
+    let sha1_d = sha1_hash_2(msg_key, auth_range(104..136)?);
 
     // aes_key = sha1_a[0..8] + sha1_b[8..20] + sha1_c[4..16]
-    key[0..8].copy_from_slice(&sha1_a[0..8]);
-    key[8..20].copy_from_slice(&sha1_b[8..20]);
-    key[20..32].copy_from_slice(&sha1_c[4..16]);
+    let key_bytes: Vec<u8> = sha1_a
+        .iter()
+        .take(8)
+        .chain(sha1_b.iter().skip(8).take(12))
+        .chain(sha1_c.iter().skip(4).take(12))
+        .copied()
+        .collect();
+    let key = key_bytes
+        .try_into()
+        .map_err(|_| Error::invalid_format("failed to derive AES key"))?;
 
     // aes_iv = sha1_a[8..20] + sha1_b[0..8] + sha1_c[16..20] + sha1_d[0..8]
-    iv[0..12].copy_from_slice(&sha1_a[8..20]);
-    iv[12..20].copy_from_slice(&sha1_b[0..8]);
-    iv[20..24].copy_from_slice(&sha1_c[16..20]);
-    iv[24..32].copy_from_slice(&sha1_d[0..8]);
+    let iv_bytes: Vec<u8> = sha1_a
+        .iter()
+        .skip(8)
+        .take(12)
+        .chain(sha1_b.iter().take(8))
+        .chain(sha1_c.iter().skip(16).take(4))
+        .chain(sha1_d.iter().take(8))
+        .copied()
+        .collect();
+    let iv = iv_bytes
+        .try_into()
+        .map_err(|_| Error::invalid_format("failed to derive AES IV"))?;
 
-    (key, iv)
+    Ok((key, iv))
 }
 
 /// AES-256-IGE decryption
@@ -269,10 +288,11 @@ mod tests {
     }
 
     #[test]
-    fn test_auth_key_from_bytes() {
+    fn test_auth_key_from_bytes() -> Result<()> {
         let bytes = [0xAB; AUTH_KEY_SIZE];
-        let key = AuthKey::from_bytes(&bytes).unwrap();
+        let key = AuthKey::from_bytes(&bytes)?;
         assert_eq!(key.as_bytes(), &bytes);
+        Ok(())
     }
 
     #[test]

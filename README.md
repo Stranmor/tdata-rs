@@ -4,15 +4,15 @@
 
 [![Crates.io](https://img.shields.io/crates/v/tdata-rs.svg)](https://crates.io/crates/tdata-rs)
 [![Documentation](https://docs.rs/tdata-rs/badge.svg)](https://docs.rs/tdata-rs)
-[![CI](https://github.com/stranmor/tdata-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/stranmor/tdata-rs/actions/workflows/ci.yml)
+[![CI](https://github.com/Stranmor/tdata-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/Stranmor/tdata-rs/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSE-MIT)
 
 Parse Telegram Desktop's local `tdata` storage and convert authorized account
-data into [`grammers`](https://github.com/Lonami/grammers) session formats.
+data into [`grammers_session::SessionData`](https://docs.rs/grammers-session/latest/grammers_session/struct.SessionData.html).
 The crate reads local files only and does not include a network client.
 
 > [!CAUTION]
-> Session strings and authentication keys grant account access. Use this crate
+> Session data and authentication keys grant account access. Use this crate
 > only with storage you own or are explicitly authorized to inspect, and treat
 > every generated session as a credential.
 
@@ -29,7 +29,7 @@ The crate reads local files only and does not include a network client.
   - Reads `AuthKey`, `UserId`, and `DcId` values.
   - Supports new (64-bit ID) and legacy tdata formats.
 - **Interoperability**:
-  - Produces `grammers_session::SessionData` values and session strings.
+  - Produces `grammers_session::SessionData` values for import into a `grammers` session storage.
 - **Multi-account storage**: Reads every account index present in the local key data.
 
 ## Installation
@@ -38,12 +38,12 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-tdata-rs = "0.1"
+tdata-rs = "0.2"
 ```
 
 ## Quick start
 
-### Convert tdata to Session String
+### Convert tdata to grammers SessionData
 
 ```rust
 use tdata_rs::TDesktop;
@@ -53,10 +53,10 @@ fn main() -> Result<(), tdata_rs::Error> {
 
     println!("Found {} account(s)", tdata.accounts().len());
 
-    // Session strings are authentication credentials: never log them.
+    // SessionData contains authentication credentials: never log or serialize it.
     for account in tdata.accounts() {
-        let session = account.to_session_string()?;
-        println!("Session generated ({} bytes)", session.len());
+        let session_data = account.to_grammers_session_data();
+        println!("SessionData prepared for DC {}", session_data.home_dc);
     }
 
     Ok(())
@@ -70,7 +70,7 @@ redacted unless an explicit `--show-*` flag is supplied.
 
 ```bash
 # Clone and run
-git clone https://github.com/stranmor/tdata-rs
+git clone https://github.com/Stranmor/tdata-rs
 cd tdata-rs
 
 # Run with default tdata path
@@ -85,29 +85,29 @@ cargo run --example cli -- --prompt-passcode
 # For automation, pass it through stdin rather than a command-line argument
 printf '%s\n' "$TDATA_PASSCODE" | cargo run --example cli -- --passcode-stdin
 
-# Full session strings and auth keys are opt-in because both grant account access
-cargo run --example cli -- --show-session
+# Private paths, account identifiers, and auth keys are opt-in
+cargo run --example cli -- --show-identifiers
 cargo run --example cli -- --show-keys
 ```
 
 **Output example:**
 ```text
-📂 Reading tdata from: "/home/user/.local/share/TelegramDesktop/tdata"
+📂 Reading tdata from: [redacted; use --show-identifiers to reveal]
 ✅ Successfully loaded TDesktop storage!
    App Version: 6004001
    Passcode:    NO
    Accounts:    2
 
 👤 Account #1 (Index 0)
-   User ID:   123456789
+   User ID:   [redacted; use --show-identifiers to reveal]
    DC ID:     2
-   Session:   [redacted; use --show-session to reveal]
+   Grammers:  SessionData conversion available
    Auth Key:  [redacted; use --show-keys to reveal]
 
 👤 Account #2 (Index 1)
-   User ID:   987654321
+   User ID:   [redacted; use --show-identifiers to reveal]
    DC ID:     2
-   Session:   [redacted; use --show-session to reveal]
+   Grammers:  SessionData conversion available
    Auth Key:  [redacted; use --show-keys to reveal]
 ```
 
@@ -115,9 +115,10 @@ cargo run --example cli -- --show-keys
 
 This library handles live authentication credentials.
 
-- Never share your `tdata` folder, session strings, auth keys, or output produced with a `--show-*` option.
-- Anyone with a session string or `AuthKey` can access the corresponding Telegram account without 2FA.
-- The CLI redacts session strings and auth keys by default.
+- Never share your `tdata` folder, session data, auth keys, or output produced with a `--show-*` option.
+- Anyone with session data or an `AuthKey` can access the corresponding Telegram account without 2FA.
+- The CLI does not print session data and redacts paths, account identifiers, and auth keys by default.
+- `Debug` output for `Account`, `TDesktop`, and `AuthKey` redacts paths, account identifiers, and key material.
 - Passcodes can be entered through a hidden prompt or stdin and are not retained by the parsed `TDesktop` object.
 - The crate performs no network requests.
 

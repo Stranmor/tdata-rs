@@ -4,7 +4,7 @@
 //! All integers are Big Endian. Strings are UTF-16 BE.
 
 use byteorder::{BigEndian, ReadBytesExt};
-use std::io::{Cursor, Read, Seek, SeekFrom};
+use std::io::{Cursor, Read};
 
 use crate::{Error, Result};
 
@@ -52,23 +52,33 @@ impl<'a> QDataStream<'a> {
 
     /// Check if we've reached the end of the stream
     pub fn at_end(&self) -> bool {
-        self.cursor.position() >= self.cursor.get_ref().len() as u64
+        self.remaining() == 0
     }
 
     /// Get remaining bytes count
     pub fn remaining(&self) -> usize {
-        let pos = self.cursor.position() as usize;
         let len = self.cursor.get_ref().len();
-        len.saturating_sub(pos)
+        usize::try_from(self.cursor.position()).map_or(0, |pos| len.saturating_sub(pos))
     }
 
     /// Skip n bytes
     pub fn skip(&mut self, n: usize) -> Result<()> {
-        self.cursor
-            .seek(SeekFrom::Current(n as i64))
-            .map_err(|_| Error::UnexpectedEof {
+        if self.remaining() < n {
+            return Err(Error::UnexpectedEof {
+                offset: self.position(),
+            });
+        }
+
+        let offset = u64::try_from(n).map_err(|_| Error::UnexpectedEof {
+            offset: self.position(),
+        })?;
+        let next = self
+            .position()
+            .checked_add(offset)
+            .ok_or(Error::UnexpectedEof {
                 offset: self.position(),
             })?;
+        self.cursor.set_position(next);
         Ok(())
     }
 
@@ -194,10 +204,14 @@ impl<'a> QDataStream<'a> {
             NULL_MARKER => Ok(Vec::new()),
             EXTENDED_LENGTH_MARKER => {
                 // Extended 64-bit length (Qt 6.7+)
-                let real_len = self.read_u64()? as usize;
+                let real_len = usize::try_from(self.read_u64()?)
+                    .map_err(|_| Error::qdatastream("QByteArray length is too large"))?;
                 self.read_raw(real_len)
             }
-            _ => self.read_raw(len as usize),
+            _ => self.read_raw(
+                usize::try_from(len)
+                    .map_err(|_| Error::qdatastream("QByteArray length is too large"))?,
+            ),
         }
     }
 
@@ -218,7 +232,8 @@ impl<'a> QDataStream<'a> {
             return Err(Error::qdatastream("QString byte length is not even"));
         }
 
-        let char_count = (byte_len / 2) as usize;
+        let char_count = usize::try_from(byte_len / 2)
+            .map_err(|_| Error::qdatastream("QString length is too large"))?;
         let mut utf16: Vec<u16> = Vec::with_capacity(char_count);
 
         for _ in 0..char_count {
@@ -237,11 +252,7 @@ impl<'a> QDataStream<'a> {
         let data = self.read_qbytearray()?;
 
         // Remove null terminator if present
-        let data = if data.last() == Some(&0) {
-            &data[..data.len() - 1]
-        } else {
-            &data[..]
-        };
+        let data = data.strip_suffix(&[0]).unwrap_or(&data);
 
         String::from_utf8(data.to_vec())
             .map_err(|_| Error::qdatastream("invalid UTF-8 in C string"))
@@ -253,76 +264,81 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_read_u32() {
+    fn test_read_u32() -> Result<()> {
         let data = [0x12, 0x34, 0x56, 0x78];
         let mut stream = QDataStream::new(&data);
-        assert_eq!(stream.read_u32().unwrap(), 0x12345678);
+        assert_eq!(stream.read_u32()?, 0x12345678);
+        Ok(())
     }
 
     #[test]
-    fn test_read_i32() {
+    fn test_read_i32() -> Result<()> {
         let data = [0xFF, 0xFF, 0xFF, 0xFE]; // -2 in big endian
         let mut stream = QDataStream::new(&data);
-        assert_eq!(stream.read_i32().unwrap(), -2);
+        assert_eq!(stream.read_i32()?, -2);
+        Ok(())
     }
 
     #[test]
-    fn test_read_qbytearray() {
+    fn test_read_qbytearray() -> Result<()> {
         // Length = 4, data = [0x01, 0x02, 0x03, 0x04]
         let data = [0x00, 0x00, 0x00, 0x04, 0x01, 0x02, 0x03, 0x04];
         let mut stream = QDataStream::new(&data);
-        assert_eq!(
-            stream.read_qbytearray().unwrap(),
-            vec![0x01, 0x02, 0x03, 0x04]
-        );
+        assert_eq!(stream.read_qbytearray()?, vec![0x01, 0x02, 0x03, 0x04]);
+        Ok(())
     }
 
     #[test]
-    fn test_read_null_qbytearray() {
+    fn test_read_null_qbytearray() -> Result<()> {
         let data = [0xFF, 0xFF, 0xFF, 0xFF];
         let mut stream = QDataStream::new(&data);
-        assert!(stream.read_qbytearray().unwrap().is_empty());
+        assert!(stream.read_qbytearray()?.is_empty());
+        Ok(())
     }
 
     #[test]
-    fn test_read_qstring() {
+    fn test_read_qstring() -> Result<()> {
         // "Hi" in UTF-16 BE: length = 4 bytes, 'H' = 0x0048, 'i' = 0x0069
         let data = [0x00, 0x00, 0x00, 0x04, 0x00, 0x48, 0x00, 0x69];
         let mut stream = QDataStream::new(&data);
-        assert_eq!(stream.read_qstring().unwrap(), "Hi");
+        assert_eq!(stream.read_qstring()?, "Hi");
+        Ok(())
     }
 
     #[test]
-    fn test_read_null_qstring() {
+    fn test_read_null_qstring() -> Result<()> {
         let data = [0xFF, 0xFF, 0xFF, 0xFF];
         let mut stream = QDataStream::new(&data);
-        assert!(stream.read_qstring().unwrap().is_empty());
+        assert!(stream.read_qstring()?.is_empty());
+        Ok(())
     }
 
     #[test]
-    fn test_position_and_remaining() {
+    fn test_position_and_remaining() -> Result<()> {
         let data = [0x01, 0x02, 0x03, 0x04, 0x05];
         let mut stream = QDataStream::new(&data);
 
         assert_eq!(stream.position(), 0);
         assert_eq!(stream.remaining(), 5);
 
-        stream.read_u8().unwrap();
+        stream.read_u8()?;
         assert_eq!(stream.position(), 1);
         assert_eq!(stream.remaining(), 4);
 
-        stream.skip(2).unwrap();
+        stream.skip(2)?;
         assert_eq!(stream.position(), 3);
         assert_eq!(stream.remaining(), 2);
+        Ok(())
     }
 
     #[test]
-    fn test_at_end() {
+    fn test_at_end() -> Result<()> {
         let data = [0x01, 0x02];
         let mut stream = QDataStream::new(&data);
 
         assert!(!stream.at_end());
-        stream.read_u16().unwrap();
+        stream.read_u16()?;
         assert!(stream.at_end());
+        Ok(())
     }
 }

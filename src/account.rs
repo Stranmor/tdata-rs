@@ -1,18 +1,22 @@
 //! Account representation
 
-use crate::{Result, AUTH_KEY_SIZE};
+use std::fmt;
+use std::net::Ipv4Addr;
+
+use base64::{engine::general_purpose::STANDARD, Engine as _};
+
+use crate::{Error, Result, AUTH_KEY_SIZE};
 
 /// Telegram datacenter addresses (production)
-const DC_ADDRESSES: [(i32, &str, u16); 5] = [
-    (1, "149.154.175.53", 443),
-    (2, "149.154.167.51", 443),
-    (3, "149.154.175.100", 443),
-    (4, "149.154.167.91", 443),
-    (5, "91.108.56.130", 443),
+const DC_ADDRESSES: [(i32, Ipv4Addr, u16); 5] = [
+    (1, Ipv4Addr::new(149, 154, 175, 53), 443),
+    (2, Ipv4Addr::new(149, 154, 167, 51), 443),
+    (3, Ipv4Addr::new(149, 154, 175, 100), 443),
+    (4, Ipv4Addr::new(149, 154, 167, 91), 443),
+    (5, Ipv4Addr::new(91, 108, 56, 130), 443),
 ];
 
 /// A Telegram account extracted from tdata
-#[derive(Debug)]
 pub struct Account {
     /// Account index (0-2)
     index: i32,
@@ -22,6 +26,17 @@ pub struct Account {
     user_id: i64,
     /// Authorization key (256 bytes)
     auth_key: [u8; AUTH_KEY_SIZE],
+}
+
+impl fmt::Debug for Account {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Account")
+            .field("index", &self.index)
+            .field("dc_id", &self.dc_id)
+            .field("user_id", &"<redacted>")
+            .field("auth_key", &"<redacted>")
+            .finish()
+    }
 }
 
 impl Account {
@@ -45,31 +60,36 @@ impl Account {
         self.dc_id
     }
 
-    /// Get the user ID
+    /// Get the Telegram user ID.
+    ///
+    /// Treat account identifiers as private data and avoid logging them.
     pub fn user_id(&self) -> i64 {
         self.user_id
     }
 
-    /// Get the raw auth key bytes
+    /// Get the raw auth key bytes.
+    ///
+    /// This grants access to the Telegram account. Never log, serialize, or expose it.
     pub fn auth_key_bytes(&self) -> &[u8; AUTH_KEY_SIZE] {
         &self.auth_key
     }
 
-    /// Convert to grammers SessionData
+    /// Convert to grammers SessionData.
     ///
-    /// Returns the session data that can be imported to any grammers Session
+    /// The returned value contains live authentication credentials and can be imported
+    /// into any `grammers` session storage. Never log or expose it.
     pub fn to_grammers_session_data(&self) -> grammers_session::SessionData {
         use grammers_session::{types::DcOption, SessionData};
-        use std::net::{Ipv4Addr, SocketAddrV4, SocketAddrV6};
+        use std::net::{SocketAddrV4, SocketAddrV6};
 
         // Get or create DC option with auth key
         let (ip, port) = DC_ADDRESSES
             .iter()
             .find(|(id, _, _)| *id == self.dc_id)
             .map(|(_, ip, port)| (*ip, *port))
-            .unwrap_or(("149.154.167.51", 443));
+            .unwrap_or((Ipv4Addr::new(149, 154, 167, 51), 443));
 
-        let ipv4: Ipv4Addr = ip.parse().unwrap();
+        let ipv4 = ip;
         let ipv6 = ipv4.to_ipv6_mapped();
 
         let mut session_data = SessionData {
@@ -95,66 +115,34 @@ impl Account {
         session_data
     }
 
-    /// Export session as a base64 string (portable format)
+    /// Export the legacy tdata-rs-specific credential blob.
     ///
-    /// This string can be used to initialize a grammers client
-    pub fn to_session_string(&self) -> Result<String> {
-        // For portable session strings, we use a simple custom format:
-        // version(1) | dc_id(1) | user_id(8) | auth_key(256)
+    /// This is not a native `grammers` session serialization. New code should use
+    /// [`Self::to_grammers_session_data`] and import that value into a `grammers`
+    /// session storage.
+    pub fn to_legacy_session_string(&self) -> Result<String> {
+        // Legacy format: base64(version(1) | dc_id(1) | user_id(8) | auth_key(256)).
         let mut data = Vec::with_capacity(1 + 1 + 8 + 256);
+        let dc_id = u8::try_from(self.dc_id).map_err(|_| {
+            Error::invalid_format(format!("datacenter ID cannot be encoded: {}", self.dc_id))
+        })?;
 
-        // Version 1
         data.push(1u8);
-        // DC ID
-        data.push(self.dc_id as u8);
-        // User ID (little endian)
+        data.push(dc_id);
         data.extend_from_slice(&self.user_id.to_le_bytes());
-        // Auth key
         data.extend_from_slice(&self.auth_key);
 
-        Ok(base64_encode(&data))
-    }
-}
-
-/// Base64 encode without external dependency
-fn base64_encode(data: &[u8]) -> String {
-    const ALPHABET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-
-    let mut result = String::new();
-    let mut i = 0;
-
-    while i < data.len() {
-        let b0 = data[i] as usize;
-        let b1 = if i + 1 < data.len() {
-            data[i + 1] as usize
-        } else {
-            0
-        };
-        let b2 = if i + 2 < data.len() {
-            data[i + 2] as usize
-        } else {
-            0
-        };
-
-        result.push(ALPHABET[b0 >> 2] as char);
-        result.push(ALPHABET[((b0 & 0x03) << 4) | (b1 >> 4)] as char);
-
-        if i + 1 < data.len() {
-            result.push(ALPHABET[((b1 & 0x0f) << 2) | (b2 >> 6)] as char);
-        } else {
-            result.push('=');
-        }
-
-        if i + 2 < data.len() {
-            result.push(ALPHABET[b2 & 0x3f] as char);
-        } else {
-            result.push('=');
-        }
-
-        i += 3;
+        Ok(STANDARD.encode(data))
     }
 
-    result
+    /// Export the legacy tdata-rs-specific credential blob.
+    #[deprecated(
+        since = "0.2.0",
+        note = "this is not a native grammers session string; use to_grammers_session_data()"
+    )]
+    pub fn to_session_string(&self) -> Result<String> {
+        self.to_legacy_session_string()
+    }
 }
 
 #[cfg(test)]
@@ -173,13 +161,22 @@ mod tests {
     }
 
     #[test]
-    fn test_base64_encode() {
-        assert_eq!(base64_encode(b""), "");
-        assert_eq!(base64_encode(b"f"), "Zg==");
-        assert_eq!(base64_encode(b"fo"), "Zm8=");
-        assert_eq!(base64_encode(b"foo"), "Zm9v");
-        assert_eq!(base64_encode(b"foob"), "Zm9vYg==");
-        assert_eq!(base64_encode(b"fooba"), "Zm9vYmE=");
-        assert_eq!(base64_encode(b"foobar"), "Zm9vYmFy");
+    fn debug_redacts_account_identity_and_auth_key() {
+        let account = Account::new(0, 2, 12_345_678, [0xAB; AUTH_KEY_SIZE]);
+        let debug = format!("{account:?}");
+
+        assert!(debug.contains("<redacted>"));
+        assert!(!debug.contains("12345678"));
+        assert!(!debug.contains("171, 171"));
+    }
+
+    #[test]
+    fn legacy_session_export_is_fallible() -> Result<()> {
+        let account = Account::new(0, 2, 12_345_678, [0xAB; AUTH_KEY_SIZE]);
+        assert!(!account.to_legacy_session_string()?.is_empty());
+
+        let invalid = Account::new(0, -1, 12_345_678, [0xAB; AUTH_KEY_SIZE]);
+        assert!(invalid.to_legacy_session_string().is_err());
+        Ok(())
     }
 }

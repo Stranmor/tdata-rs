@@ -1,13 +1,13 @@
 [package]
 name = "tdata-rs"
-version = "0.1.0"
-edition = "2021"
+version = "0.2.0"
+edition = "2024"
 rust-version = "1.85.0"
 description = "Pure Rust parser for Telegram Desktop tdata storage with grammers session conversion"
 authors = ["Stranmor"]
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/stranmor/tdata-rs"
-homepage = "https://github.com/stranmor/tdata-rs"
+repository = "https://github.com/Stranmor/tdata-rs"
+homepage = "https://github.com/Stranmor/tdata-rs"
 documentation = "https://docs.rs/tdata-rs"
 keywords = ["telegram", "tdata", "parser", "mtproto", "tdesktop"]
 categories = ["cryptography", "parsing", "api-bindings"]
@@ -35,6 +35,7 @@ md-5 = "0.10"
 
 # Binary parsing
 byteorder = "1.5"
+base64 = "0.22"
 
 # Error handling
 thiserror = "2"

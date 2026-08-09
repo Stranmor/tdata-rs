@@ -2,6 +2,7 @@
 //!
 //! Main entry point for parsing tdata folders.
 
+use std::fmt;
 use std::path::{Path, PathBuf};
 
 use crate::account::Account;
@@ -15,7 +16,6 @@ use crate::{Error, Result, DEFAULT_KEY_FILE};
 /// Telegram Desktop client representation
 ///
 /// Represents a parsed tdata folder with all its accounts.
-#[derive(Debug)]
 pub struct TDesktop {
     /// Base path to the tdata folder
     base_path: PathBuf,
@@ -31,6 +31,18 @@ pub struct TDesktop {
     accounts: Vec<Account>,
     /// App version from tdata
     app_version: u32,
+}
+
+impl fmt::Debug for TDesktop {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("TDesktop")
+            .field("base_path", &"<redacted>")
+            .field("key_file", &self.key_file)
+            .field("has_passcode", &self.has_passcode)
+            .field("accounts_count", &self.accounts.len())
+            .field("app_version", &self.app_version)
+            .finish()
+    }
 }
 
 impl TDesktop {
@@ -77,7 +89,7 @@ impl TDesktop {
         passcode: Option<&str>,
         key_file: Option<&str>,
     ) -> Result<Self> {
-        let base_path = get_absolute_path(path.as_ref().to_str().unwrap_or(""));
+        let base_path = get_absolute_path(path.as_ref());
 
         if !base_path.exists() {
             return Err(Error::FolderNotFound {
@@ -104,12 +116,7 @@ impl TDesktop {
         for index in account_indices {
             match Self::load_account(&base_path, index, &local_key, &key_file) {
                 Ok(account) => {
-                    tracing::info!(
-                        "Loaded account {}: dc_id={}, user_id={}",
-                        index,
-                        account.dc_id(),
-                        account.user_id()
-                    );
+                    tracing::info!("Loaded account {} for DC {}", index, account.dc_id());
                     accounts.push(account);
                 }
                 Err(e) => {
@@ -149,7 +156,9 @@ impl TDesktop {
         ))
     }
 
-    /// Get the base path to the tdata folder
+    /// Get the base path to the tdata folder.
+    ///
+    /// Local paths can reveal account names and workstation layout. Avoid logging them.
     pub fn base_path(&self) -> &Path {
         &self.base_path
     }
@@ -189,7 +198,9 @@ impl TDesktop {
         &self.key_file
     }
 
-    /// Get the local encryption key
+    /// Get the local encryption key.
+    ///
+    /// This is credential material. Never log, serialize, or expose it.
     pub fn local_key(&self) -> &AuthKey {
         &self.local_key
     }
@@ -239,5 +250,25 @@ mod tests {
         assert_eq!(builder.path, PathBuf::from("/path/to/tdata"));
         assert_eq!(builder.passcode, Some("secret".to_string()));
         assert_eq!(builder.key_file, Some("custom".to_string()));
+    }
+
+    #[test]
+    fn debug_redacts_storage_path_and_account_identity() -> Result<()> {
+        let tdesktop = TDesktop {
+            base_path: PathBuf::from("/private/user/TelegramDesktop/tdata"),
+            key_file: "data".to_string(),
+            has_passcode: true,
+            local_key: AuthKey::from_bytes(&[0xCD; crate::AUTH_KEY_SIZE])?,
+            accounts: vec![Account::new(0, 2, 12_345_678, [0xAB; crate::AUTH_KEY_SIZE])],
+            app_version: 6_004_001,
+        };
+        let debug = format!("{tdesktop:?}");
+
+        assert!(debug.contains("<redacted>"));
+        assert!(!debug.contains("/private/user"));
+        assert!(!debug.contains("12345678"));
+        assert!(!debug.contains("171, 171"));
+        assert!(!debug.contains("205, 205"));
+        Ok(())
     }
 }

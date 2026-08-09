@@ -23,8 +23,7 @@
 //!     // Get the main account's session
 //!     if let Some(account) = tdesktop.main_account() {
 //!         let session_data = account.to_grammers_session_data();
-//!         println!("DC ID: {}", account.dc_id());
-//!         println!("User ID: {}", account.user_id());
+//!         println!("SessionData prepared for DC {}", session_data.home_dc);
 //!     }
 //!     
 //!     Ok(())
